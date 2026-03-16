@@ -1,7 +1,11 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import type { NotificationState } from '../hooks/useNotification';
 import './Notification.css';
+
+type NotificationState = {
+  type: 'success' | 'error';
+  message: string;
+};
 
 interface NotificationProps {
   notification: NotificationState | null;
