@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNotification } from './useNotification';
 import Notification from '../hooks/Notification';
+import { API_URL } from '../config/api';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
@@ -36,8 +37,8 @@ const PersonalAreasModule = () => {
   const fetchData = async () => {
     try {
       const [resAreas, resPersonas] = await Promise.all([
-        fetch('http://localhost:3001/api/areas'),
-        fetch('http://localhost:3001/api/personas')
+        fetch(`${API_URL}/areas`),
+        fetch(`${API_URL}/personas`)
       ]);
       if (resAreas.ok) setAreas(await resAreas.json());
       if (resPersonas.ok) setPersonas(await resPersonas.json());

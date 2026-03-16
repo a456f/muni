@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNotification } from './useNotification';
 import Notification from '../hooks/Notification';
+import { API_URL } from '../config/api';
 
 const AsignacionPatrullasModule = () => {
   const [asignaciones, setAsignaciones] = useState<any[]>([]);
@@ -26,10 +27,10 @@ const AsignacionPatrullasModule = () => {
   const fetchData = async () => {
     try {
       const [resAsig, resSer, resPat, resTur] = await Promise.all([
-        fetch('http://localhost:3001/api/asignaciones'),
-        fetch('http://localhost:3001/api/serenos'),
-        fetch('http://localhost:3001/api/patrullas'),
-        fetch('http://localhost:3001/api/turnos')
+        fetch(`${API_URL}/asignaciones`),
+        fetch(`${API_URL}/serenos`),
+        fetch(`${API_URL}/patrullas`),
+        fetch(`${API_URL}/turnos`)
       ]);
       if (resAsig.ok) setAsignaciones(await resAsig.json());
       if (resSer.ok) setSerenos(await resSer.json());
@@ -53,7 +54,7 @@ const AsignacionPatrullasModule = () => {
     e.preventDefault();
     setError(null);
     
-    const url = editingId ? `http://localhost:3001/api/asignaciones/${editingId}` : 'http://localhost:3001/api/asignaciones';
+    const url = editingId ? `${API_URL}/asignaciones/${editingId}` : `${API_URL}/asignaciones`;
     const method = editingId ? 'PUT' : 'POST';
 
     try {
@@ -109,7 +110,7 @@ const AsignacionPatrullasModule = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar esta asignación?')) {
       try {
-        const response = await fetch(`http://localhost:3001/api/asignaciones/${id}`, { method: 'DELETE' });
+        const response = await fetch(`${API_URL}/asignaciones/${id}`, { method: 'DELETE' });
         if (!response.ok) {
           const errData = await response.json();
           throw new Error(errData.error || 'Error al eliminar la asignación');

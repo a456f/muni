@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config/api';
 
 interface HistorialEntry {
   id_historial: number;
@@ -26,7 +27,7 @@ const HistorialAsignacionesModule = () => {
 
   const fetchData = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/historial-asignaciones');
+      const res = await fetch(`${API_URL}/historial-asignaciones`);
       if (res.ok) setHistorial(await res.json());
     } catch (error) {
       console.error("Error fetching assignment history:", error);

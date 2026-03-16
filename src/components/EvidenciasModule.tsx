@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config/api';
 import './EvidenciasModule.css';
 
 interface Evidencia {
@@ -37,7 +38,7 @@ const EvidenciasModule = ({ idIncidencia, onClose }: Props) => {
 
   const fetchEvidencias = async () => {
     try {
-      const res = await fetch(`http://localhost:3001/api/incidencias/${idIncidencia}/evidencias`);
+      const res = await fetch(`${API_URL}/incidencias/${idIncidencia}/evidencias`);
       if (res.ok) setEvidencias(await res.json());
     } catch (error) { console.error(error); }
   };

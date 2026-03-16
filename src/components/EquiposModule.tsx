@@ -4,6 +4,7 @@ import { useNotification } from './useNotification';
 import Notification from '../hooks/Notification';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import { API_URL } from '../config/api';
 
 // Interfaces for the new module
 interface TipoEquipo {
@@ -26,6 +27,20 @@ interface Equipo {
   area_asignada: string | null;
 }
 
+interface Pagination {
+    totalItems: number;
+    totalPages: number;
+    currentPage: number;
+    limit: number;
+}
+
+interface EquiposApiResponse {
+    data: Equipo[];
+    pagination: Pagination;
+}
+
+
+
 const EquiposModule = () => {
     const [equipos, setEquipos] = useState<Equipo[]>([]);
     const [loading, setLoading] = useState(true);
@@ -42,6 +57,8 @@ const EquiposModule = () => {
     };
     const [form, setForm] = useState(initialFormState);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [pagination, setPagination] = useState<Pagination>({totalItems: 0, totalPages: 1, currentPage: 1, limit: 15});
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { notification, showNotification, hideNotification } = useNotification();
     const [error, setError] = useState<string | null>(null);
@@ -49,15 +66,17 @@ const EquiposModule = () => {
     const fetchData = async () => {
         try {
             const [resEquipos, resTipos] = await Promise.all([
-                fetch(`http://localhost:3001/api/equipos?searchTerm=${searchTerm}`),
-                fetch('http://localhost:3001/api/tipos-equipo')
+                fetch(`${API_URL}/equipos?searchTerm=${searchTerm}&page=${currentPage}`),
+                fetch(`${API_URL}/tipos-equipo`)
             ]);
             if (resEquipos.ok) {
-                const responseJson = await resEquipos.json();
-                // The API returns an object with a 'data' property containing the array
+                const responseJson: EquiposApiResponse = await resEquipos.json();
                 const equiposArray = Array.isArray(responseJson.data) ? responseJson.data : [];
                 setEquipos(equiposArray);
+                setPagination(responseJson.pagination);
             }
+
+
             if (resTipos.ok) setTiposEquipo(await resTipos.json());
             setLoading(false);
         } catch (error) {
@@ -73,6 +92,9 @@ const EquiposModule = () => {
 
     useEffect(() => {
         fetchData();
+    }, [currentPage, searchTerm]);
+
+    useEffect(() => {
     }, []);
 
     useEffect(() => {
@@ -94,7 +116,7 @@ const EquiposModule = () => {
             );
         });
         setFilteredEquipos(filteredData);
-    }, [searchTerm, equipos]);
+    }, [searchTerm, equipos, currentPage]);
 
 
     const resetForm = () => {
@@ -128,7 +150,7 @@ const EquiposModule = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
-        const url = editingId ? `http://localhost:3001/api/equipos/${editingId}` : 'http://localhost:3001/api/equipos';
+        const url = editingId ? `${API_URL}/equipos/${editingId}` : `${API_URL}/equipos`;
         const method = editingId ? 'PUT' : 'POST';
         
         const originalEquipo = equipos.find(e => e.id === editingId);
@@ -160,7 +182,7 @@ const EquiposModule = () => {
     const handleDelete = async (id: number) => {
         if (window.confirm('¿Eliminar este equipo? Esta acción no se puede deshacer.')) {
             try {
-                const response = await fetch(`http://localhost:3001/api/equipos/${id}`, { method: 'DELETE' });
+                const response = await fetch(`${API_URL}/equipos/${id}`, { method: 'DELETE' });
                 if (!response.ok) {
                     const errorData = await response.json();
                     throw new Error(errorData.error || 'Error al eliminar el equipo.');
@@ -174,7 +196,7 @@ const EquiposModule = () => {
     };
 
     const handleExport = async () => {
-        const workbook = new ExcelJS.Workbook();
+            const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Inventario');
 
         const headerStyle = {
@@ -214,7 +236,15 @@ const EquiposModule = () => {
             { header: 'Área Asignada', key: 'area_asignada', width: 25 },
         ];
 
-        const data = filteredEquipos.map(item => ({
+           // Fetch all equipos without pagination
+            const resEquipos = await fetch(`${API_URL}/equipos?searchTerm=${searchTerm}&page=1&limit=100000`); //High limit
+            if (!resEquipos.ok) {
+                throw new Error('Error fetching equipos for export.');
+            }
+            const responseJson: EquiposApiResponse = await resEquipos.json();
+            const allEquipos = responseJson.data;
+
+        const data = allEquipos.map(item => ({
             ...item,
             identificador: item.identificador || '',
             persona_asignada: item.persona_asignada || '',
@@ -245,7 +275,7 @@ const EquiposModule = () => {
             <div className="crud-header">
                 <h2>Inventario de Equipos</h2>
                 <div style={{display: 'flex', gap: '10px'}}>
-                    <button className="action-btn" onClick={handleExport} title="Descargar reporte en Excel" style={{display: 'flex', alignItems: 'center', gap: '5px', padding: '0.5rem 1rem', height: 'auto', backgroundColor: '#107c41', color: 'white', border: 'none'}}>
+                    <button className="action-btn" onClick={handleExport} title="Descargar reporte en Excel" style={{display: 'flex', alignItems: 'center', gap: '5px', padding: '0.5rem 1rem', height: 'auto', backgroundColor: '#107c41', color: 'white', border: 'none', whiteSpace: 'nowrap'}}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                         Exportar Excel
                     </button>
@@ -327,6 +357,14 @@ const EquiposModule = () => {
                     </tbody>
                 </table>
             </div>
+             <div className="pagination">
+                <span className="pagination-info">Mostrando {pagination.currentPage} de {pagination.totalPages} páginas</span>
+                <div className="pagination-buttons">
+                    <button className="page-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={pagination.currentPage === 1}>Anterior</button>
+                    <button className="page-btn" onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))} disabled={pagination.currentPage === pagination.totalPages}>Siguiente</button>
+                </div>
+             </div>
+
         </div>
     );
 };

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNotification } from './useNotification';
 import Notification from '../hooks/Notification';
+import { API_URL } from '../config/api';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
@@ -48,10 +49,10 @@ const AsignacionesEquiposModule = () => {
     const fetchData = async () => {
         try {
             const [resAsig, resEquipos, resPersonas, resAreas] = await Promise.all([
-                fetch('http://localhost:3001/api/asignaciones-equipos'),
-                fetch('http://localhost:3001/api/equipos'),
-                fetch('http://localhost:3001/api/personas'),
-                fetch('http://localhost:3001/api/areas')
+                fetch(`${API_URL}/asignaciones-equipos`),
+                fetch(`${API_URL}/equipos`),
+                fetch(`${API_URL}/personas`),
+                fetch(`${API_URL}/areas`)
             ]);
             if (resAsig.ok) setAsignaciones(await resAsig.json());
             if (resEquipos.ok) {
@@ -73,7 +74,7 @@ const AsignacionesEquiposModule = () => {
         e.preventDefault();
         setError(null);
         try {
-            const response = await fetch('http://localhost:3001/api/asignaciones-equipos', {
+            const response = await fetch(`${API_URL}/asignaciones-equipos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(assignForm)
@@ -99,7 +100,7 @@ const AsignacionesEquiposModule = () => {
         if (!returnModalData) return;
         setError(null);
         try {
-            const response = await fetch(`http://localhost:3001/api/asignaciones-equipos/${returnModalData.id}/devolucion`, {
+            const response = await fetch(`${API_URL}/asignaciones-equipos/${returnModalData.id}/devolucion`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(returnForm)

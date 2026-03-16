@@ -754,7 +754,7 @@ app.get('/api/equipos', async (req, res) => {
     const countQuery = `SELECT COUNT(*) as total FROM (${subquery}) as equipos_completos ${whereClause}`;
     const dataQuery = `SELECT * FROM (${subquery}) as equipos_completos ${whereClause} ORDER BY fecha_registro DESC LIMIT ? OFFSET ?`;
 
-    try {
+     try {
         const [countRows] = await db.query(countQuery, params);
         const totalItems = countRows[0].total;
         const totalPages = Math.ceil(totalItems / limit);

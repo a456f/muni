@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { API_URL } from '../config/api';
 import { useNotification } from './useNotification';
 import Notification from '../hooks/Notification';
 import ExcelJS from 'exceljs';
@@ -17,9 +18,9 @@ const TiposEquipoModule = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { notification, showNotification, hideNotification } = useNotification();
 
-  const fetchData = async () => {
+    const fetchData = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/tipos-equipo');
+      const res = await fetch(`${API_URL}/tipos-equipo`);
       if (res.ok) setTipos(await res.json());
     } catch (error) { 
         console.error("Error fetching data:", error);
@@ -51,7 +52,7 @@ const TiposEquipoModule = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingId ? `http://localhost:3001/api/tipos-equipo/${editingId}` : 'http://localhost:3001/api/tipos-equipo';
+    const url = editingId ? `${API_URL}/tipos-equipo/${editingId}` : `${API_URL}/tipos-equipo`;
     const method = editingId ? 'PUT' : 'POST';
     try {
       const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
@@ -70,7 +71,7 @@ const TiposEquipoModule = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar este tipo de equipo?')) {
       try {
-        const response = await fetch(`http://localhost:3001/api/tipos-equipo/${id}`, { method: 'DELETE' });
+        const response = await fetch(`${API_URL}/tipos-equipo/${id}`, { method: 'DELETE' });
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Error al eliminar el tipo de equipo.');

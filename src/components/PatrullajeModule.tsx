@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import PatrullasModule from './PatrullasModule';
 import AsignacionPatrullasModule from './AsignacionPatrullasModule';
+import { API_URL } from '../config/api';
 
 const HistorialAsignacionesModule = () => {
     const [history, setHistory] = useState<any[]>([]);
     useEffect(() => {
-        fetch('http://localhost:3001/api/historial-asignaciones')
+        fetch(`${API_URL}/historial-asignaciones`)
             .then(res => res.json())
             .then(data => setHistory(data))
             .catch(err => console.error(err));
