@@ -1,0 +1,54 @@
+// Lógica para conectar con el backend (API)
+
+export interface User {
+  id: number;
+  email: string;
+  role: string;
+  nombre: string | null;
+}
+
+// Definimos un tipo para la respuesta del login para más claridad
+interface LoginResponse {
+  success: boolean;
+  message: string;
+  token?: string;
+  user?: User;
+}
+
+export const loginUser = async (email: string, password: string): Promise<LoginResponse> => {
+  try {
+    // Conectando al backend Node.js en el puerto 3001
+    const response = await fetch('http://localhost:3001/api/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // Aquí podrías guardar el token que te devuelva el servidor
+      // localStorage.setItem('token', data.token);
+      return { success: true, message: data.message, token: data.token, user: data.user };
+    }
+    return { success: false, message: data.message || 'Error desconocido del servidor' };
+  } catch (error) {
+    console.error("Error de conexión:", error);
+    return { success: false, message: 'No se pudo conectar con el servidor.' };
+  }
+};
+
+export const testConnection = async (): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await fetch('http://localhost:3001/api/test-db');
+    const data = await response.json();
+    if (response.ok) {
+      return { success: true, message: data.message };
+    }
+    return { success: false, message: 'Error en el servidor de base de datos' };
+  } catch (error) {
+    return { success: false, message: '❌ El servidor backend no está respondiendo (¿está encendido?)' };
+  }
+};

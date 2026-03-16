@@ -1,0 +1,126 @@
+.sidebar {
+  width: 260px;
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: calc(100vh - 2rem); /* Altura menos márgenes */
+  margin: 1rem; /* Margen para efecto flotante */
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-soft);
+  z-index: 10;
+  border: var(--glass-border);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.sidebar-header {
+  padding: 1.5rem 1.5rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--brand-blue), #60a5fa);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+.logo-icon svg { width: 24px; height: 24px; }
+
+.logo-text h1 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  color: var(--text-heading);
+}
+.logo-text span { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+
+.sidebar-menu {
+  flex: 1;
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow-y: auto;
+}
+
+.menu-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin: 1.5rem 0 0.5rem 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.sidebar-menu button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.85rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 500;
+}
+
+.sidebar-menu button:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-main);
+  transform: translateX(4px);
+}
+
+.sidebar-menu button.active {
+  background: linear-gradient(90deg, var(--brand-blue), var(--brand-blue-hover));
+  color: white;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.sidebar-footer {
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-light);
+  background-color: var(--bg-app);
+}
+
+.logout-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: transparent;
+  border: 1px solid var(--border-light);
+  color: #ef4444;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.logout-btn:hover {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}

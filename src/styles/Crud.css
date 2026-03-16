@@ -1,0 +1,406 @@
+/* Contenedor principal del módulo */
+.crud-module {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  padding: 2rem;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-soft);
+  margin-top: 1.5rem;
+  border: var(--glass-border);
+}
+
+/* Cabecera del módulo */
+.crud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.module-description {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-top: -0.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-input);
+  border-radius: var(--radius-md);
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.search-wrapper {
+  position: relative;
+  color: var(--text-muted);
+}
+
+.search-wrapper svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.search-input {
+  padding: 0.6rem 1rem 0.6rem 2.5rem;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  width: 280px;
+  background-color: var(--bg-input);
+  transition: all 0.2s;
+  color: var(--text-main);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--brand-blue);
+  background-color: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.crud-header h2 {
+  margin: 0;
+  color: var(--text-heading);
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Formularios (dentro del modal) */
+.crud-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.crud-form input, 
+.crud-form select {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  flex: 1;
+  width: 100%;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  background-color: var(--bg-input);
+  color: var(--text-main);
+}
+
+.crud-form input:focus, 
+.crud-form select:focus {
+  outline: none;
+  border-color: var(--brand-blue);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+  background-color: var(--bg-card);
+}
+
+/* Tablas */
+.table-responsive {
+  overflow-x: auto;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  margin-bottom: 1rem;
+  background-color: var(--bg-card);
+  overflow: hidden; /* Para recortar las esquinas y que se vea integrado */
+}
+
+.crud-table {
+  width: 100%;
+  border-collapse: collapse; /* Volvemos al comportamiento normal de tabla */
+  font-size: 0.875rem;
+}
+
+.crud-table th {
+  background-color: var(--bg-input); /* Fondo sutil para el encabezado */
+  color: var(--text-heading);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  padding: 1rem 1.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.crud-table td {
+  background-color: transparent;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-main);
+  vertical-align: middle;
+  transition: background-color 0.2s;
+}
+
+/* Eliminamos los bordes redondeados individuales de las celdas */
+.crud-table td:first-child {
+  border-left: none;
+  border-radius: 0;
+}
+
+.crud-table td:last-child {
+  border-right: none;
+  border-radius: 0;
+}
+
+.crud-table tr:last-child td {
+  border-bottom: none; /* Quitamos el borde de la última fila para limpieza */
+}
+
+.crud-table tr:hover {
+  filter: none;
+  transform: none;
+}
+
+.crud-table tr:hover td {
+  background-color: var(--bg-hover); /* Color de fondo suave al pasar el mouse */
+  border-color: var(--border-light);
+}
+
+/* Botones de acción */
+.action-btn {
+  padding: 0.375rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  margin-right: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  background-color: var(--bg-card);
+}
+
+.action-btn:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.action-btn.edit { 
+  color: #0369a1; 
+  border-color: #0ea5e9;
+  background-color: transparent;
+}
+.action-btn.edit:hover { background-color: rgba(14, 165, 233, 0.1); }
+
+.action-btn.transfer {
+  color: #0369a1; 
+  border-color: #0ea5e9;
+  background-color: transparent;
+}
+.action-btn.transfer:hover { background-color: rgba(14, 165, 233, 0.1); }
+
+.action-btn.delete { 
+  color: #be123c; 
+  border-color: #f43f5e;
+  background-color: transparent;
+}
+.action-btn.delete:hover { background-color: rgba(244, 63, 94, 0.1); }
+
+.cancel-btn {
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border: 1px solid var(--border-light);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-main);
+}
+
+/* Botón principal reutilizable */
+.login-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background-color: var(--brand-blue);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.login-button:hover {
+  background-color: var(--brand-blue-hover);
+  transform: none;
+}
+
+/* --- ESTILOS DEL MODAL --- */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem; /* Añadir padding para que no toque los bordes en pantallas pequeñas */
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: var(--bg-card);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  margin: auto; /* Asegura el centrado si flex falla en algunos navegadores */
+  position: relative; /* Para posicionamiento interno */
+  display: flex;
+  flex-direction: column;
+  animation: modalFadeIn 0.2s ease-out;
+  max-height: 90vh;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+.modal-close:hover { color: var(--text-main); }
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  background-color: var(--bg-hover);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+/* --- PAGINACIÓN --- */
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-light);
+}
+
+.pagination-info {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.page-btn {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--text-main);
+  margin-left: 0.25rem;
+  transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) { background-color: var(--bg-hover); }
+.page-btn.active { background-color: var(--brand-blue); color: white; border-color: var(--brand-blue); }
+.page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Estilo para mensajes de error en el modal */
+.error-message {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* Badges de estado */
+.badge {
+  padding: 0.25em 0.6em;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  display: inline-block;
+  line-height: 1;
+  text-transform: capitalize;
+}
+
+.status-active {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+.status-inactive {
+  background-color: rgba(107, 114, 128, 0.1);
+  color: #4b5563;
+}
+
+/* Estilos para la vista de transferencia en AsignacionPatrullasModule */
+.transfer-info {
+  background-color: var(--bg-input);
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.transfer-info p {
+  margin: 0.5rem 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+.transfer-info p strong {
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.crud-form label {
+  font-weight: 600;
+  color: var(--text-heading);
+}

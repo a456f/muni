@@ -1,0 +1,63 @@
+/* src/styles/Almacen.css */
+
+/*
+  Estilos específicos para el módulo de Almacén.
+  La mayoría de los estilos generales como .sub-nav
+  se heredan de Dashboard.css y Crud.css
+*/
+
+.personal-areas-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+}
+
+@media (max-width: 900px) {
+  .personal-areas-container {
+    grid-template-columns: 1fr;
+  }
+}
+/* --- Styles for EquiposModule --- */
+
+/* Serial number input with scan button */
+.serial-number-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  grid-column: 1 / -1; /* Span across all columns in the grid */
+}
+
+.serial-number-group input {
+  flex-grow: 1;
+}
+
+.scan-btn {
+  padding: 0.6rem 0.8rem;
+  background-color: var(--input-bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  transition: background-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.scan-btn:hover {
+  background-color: var(--primary-color-lighter);
+  color: var(--primary-color);
+  border-color: var(--primary-color-light);
+}
+
+.scan-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Ensure the serial number input is not stretched weirdly in the grid */
+.crud-form.grid-form-2-cols .serial-number-group {
+    grid-column: span 2;
+}

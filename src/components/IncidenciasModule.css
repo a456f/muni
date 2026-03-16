@@ -1,0 +1,35 @@
+/* Estilos específicos para el módulo de Incidencias */
+.badge {
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* Ejemplo de colores por estado (ajustar según IDs reales) */
+.status-1 { background-color: #dbeafe; color: #1e40af; } /* Nuevo */
+.status-2 { background-color: #fef3c7; color: #92400e; } /* En proceso */
+.status-3 { background-color: #dcfce7; color: #166534; } /* Resuelto */
+
+/* Añadir a IncidenciasModule.css */
+.grid-form-3-cols {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.grid-form-3-cols .full-width {
+  grid-column: 1 / -1; /* Ocupa todo el ancho */
+}
+
+.grid-form-3-cols textarea {
+    min-height: 80px;
+}
+
+/* Para pantallas más pequeñas */
+@media (max-width: 768px) {
+  .grid-form-3-cols {
+    grid-template-columns: 1fr;
+  }
+}
