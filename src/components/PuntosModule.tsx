@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './PuntosModule.css';
 import { createPortal } from 'react-dom';
+import { API_URL } from '../config/api';
 
 interface Punto {
   id_punto: number;
