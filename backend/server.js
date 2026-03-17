@@ -35,12 +35,11 @@ const upload = multer({ storage: storage });
 
 // Configuración de conexión a Laragon (MySQL)
 const dbConfig = {
-  host: '127.0.0.1', // Usamos la IP directa para evitar problemas de resolución de DNS
-  user: 'root',      // Usuario por defecto de Laragon
-  password: '',      // Laragon suele venir sin contraseña
+  host: '127.0.0.1',
+  user: 'appuser',
+  password: '123456',
   database: 'sistema_denuncias'
 };
-
 // Crear y exportar el pool de conexiones
 export const db = mysql.createPool(dbConfig);
 
