@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config/api';
 
 const TiposIncidenciaModule = () => {
   const [items, setItems] = useState<any[]>([]);
@@ -7,7 +8,7 @@ const TiposIncidenciaModule = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchData = async () => {
-    const res = await fetch('http://localhost:3001/api/tipos-incidencia');
+    const res = await fetch(`${API_URL}/tipos-incidencia`);
     if (res.ok) setItems(await res.json());
   };
 
@@ -15,7 +16,7 @@ const TiposIncidenciaModule = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingId ? `http://localhost:3001/api/tipos-incidencia/${editingId}` : 'http://localhost:3001/api/tipos-incidencia';
+    const url = editingId ? `${API_URL}/tipos-incidencia/${editingId}` : `${API_URL}/tipos-incidencia`;
     const method = editingId ? 'PUT' : 'POST';
     const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     if (response.ok) {
@@ -38,7 +39,7 @@ const TiposIncidenciaModule = () => {
 
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar este tipo?')) {
-      await fetch(`http://localhost:3001/api/tipos-incidencia/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/tipos-incidencia/${id}`, { method: 'DELETE' });
       fetchData();
     }
   };

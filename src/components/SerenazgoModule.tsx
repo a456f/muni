@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNotification } from './useNotification';
 import Notification from '../hooks/Notification';
 
+import { API_URL } from '../config/api';
 interface Sereno {
   id_sereno: number;
   nombres: string;
@@ -41,7 +42,7 @@ const SerenazgoModule = () => {
 
   const fetchData = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/serenos');
+      const res = await fetch(`${API_URL}/serenos`);
       if (res.ok) setSerenos(await res.json());
     } catch (error) { console.error("Error fetching serenos:", error); }
   };
@@ -92,7 +93,7 @@ const SerenazgoModule = () => {
         return;
     }
 
-    const url = editingId ? `http://localhost:3001/api/serenos/${editingId}` : 'http://localhost:3001/api/serenos';
+    const url = editingId ? `${API_URL}/serenos/${editingId}` : `${API_URL}/serenos`;
     const method = editingId ? 'PUT' : 'POST';
 
     try {
@@ -119,7 +120,7 @@ const SerenazgoModule = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar este sereno y sus credenciales? Esta acción es irreversible.')) {
       try {
-        const response = await fetch(`http://localhost:3001/api/serenos/${id}`, { method: 'DELETE' });
+        const response = await fetch(`${API_URL}/serenos/${id}`, { method: 'DELETE' });
         if (!response.ok) throw new Error('Error al eliminar');
         fetchData();
         showNotification('Sereno eliminado con éxito.', 'success');
@@ -133,7 +134,7 @@ const SerenazgoModule = () => {
     const action = currentStatus === 1 ? 'desactivar' : 'activar';
     if (window.confirm(`¿Estás seguro de que quieres ${action} la cuenta de este usuario?`)) {
         try {
-            const response = await fetch(`http://localhost:3001/api/serenos/credenciales/${credencialId}/toggle-status`, {
+            const response = await fetch(`${API_URL}/serenos/credenciales/${credencialId}/toggle-status`, {
                 method: 'PUT',
             });
             if (!response.ok) {
@@ -181,7 +182,7 @@ const SerenazgoModule = () => {
     if (!newPassword || !passwordModal.credencialId) return;
 
     try {
-      const response = await fetch(`http://localhost:3001/api/serenos/credenciales/${passwordModal.credencialId}/password`, {
+      const response = await fetch(`${API_URL}/serenos/credenciales/${passwordModal.credencialId}/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: newPassword }),

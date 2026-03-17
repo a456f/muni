@@ -15,6 +15,7 @@ import EstadosIncidenciaModule from '../components/EstadosIncidenciaModule';
 import PrioridadIncidenciaModule from '../components/PrioridadIncidenciaModule';
 import type { User } from '../services/authService';
 import AlmacenModule from '../components/AlmacenModule';
+import { API_URL } from '../config/api';
 
 interface DashboardProps {
   user: User;
@@ -32,7 +33,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
   // Cargar KPIs al montar el componente o al cambiar a la pestaña de inicio
   useEffect(() => {
     if (activeTab === 'inicio') {
-      fetch('http://localhost:3001/api/kpis')
+      fetch(`${API_URL}/kpis`)
         .then(res => res.json())
         .then(data => setKpis(data))
         .catch(err => console.error("Error cargando KPIs:", err));

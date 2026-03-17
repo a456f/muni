@@ -5,6 +5,7 @@ import Notification from '../hooks/Notification';
 import type { User } from '../services/authService';
 import { useNotification } from './useNotification';
 import { createPortal } from 'react-dom';
+import { API_URL } from '../config/api';
 
 // Interfaz actualizada según la nueva tabla 'incidencias'
 interface Incidencia {
@@ -77,10 +78,10 @@ const IncidenciasModule = ({ user }: Props) => {
   const fetchData = async () => {
     try {
       const [resInc, resTip, resZon, resSer] = await Promise.all([
-        fetch('http://localhost:3001/api/incidencias'),
-        fetch('http://localhost:3001/api/tipos-incidencia'),
-        fetch('http://localhost:3001/api/zonas'),
-        fetch('http://localhost:3001/api/serenos')
+        fetch(`${API_URL}/incidencias`),
+        fetch(`${API_URL}/tipos-incidencia`),
+        fetch(`${API_URL}/zonas`),
+        fetch(`${API_URL}/serenos`)
       ]);
       
       if(resInc.ok) setIncidencias(await resInc.json());
@@ -101,7 +102,7 @@ const IncidenciasModule = ({ user }: Props) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingId ? `http://localhost:3001/api/incidencias/${editingId}` : 'http://localhost:3001/api/incidencias';
+    const url = editingId ? `${API_URL}/incidencias/${editingId}` : `${API_URL}/incidencias`;
     const method = editingId ? 'PUT' : 'POST';
     
     // Preparar el cuerpo, manejando campos numéricos/nulos
@@ -168,7 +169,7 @@ const IncidenciasModule = ({ user }: Props) => {
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar incidencia?')) {
       try {
-        const response = await fetch(`http://localhost:3001/api/incidencias/${id}`, { method: 'DELETE' });
+        const response = await fetch(`${API_URL}/incidencias/${id}`, { method: 'DELETE' });
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Error al eliminar.');

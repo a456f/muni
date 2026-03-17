@@ -66,7 +66,7 @@ const PersonalAreasModule = () => {
 
   const handleAreaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingAreaId ? `http://localhost:3001/api/areas/${editingAreaId}` : 'http://localhost:3001/api/areas';
+    const url = editingAreaId ? `${API_URL}/areas/${editingAreaId}` : `${API_URL}/areas`;
     const method = editingAreaId ? 'PUT' : 'POST';
     try {
       const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(areaForm) });
@@ -82,7 +82,7 @@ const PersonalAreasModule = () => {
   const handleAreaDelete = async (id: number) => {
     if (window.confirm('¿Eliminar esta área? El personal asignado quedará sin área.')) {
       try {
-        const response = await fetch(`http://localhost:3001/api/areas/${id}`, { method: 'DELETE' });
+        const response = await fetch(`${API_URL}/areas/${id}`, { method: 'DELETE' });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al eliminar el área.');
         fetchData();
         showNotification('Área eliminada con éxito.', 'success');
@@ -106,7 +106,7 @@ const PersonalAreasModule = () => {
 
   const handlePersonaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingPersonaId ? `http://localhost:3001/api/personas/${editingPersonaId}` : 'http://localhost:3001/api/personas';
+    const url = editingPersonaId ? `${API_URL}/personas/${editingPersonaId}` : `${API_URL}/personas`;
     const method = editingPersonaId ? 'PUT' : 'POST';
     try {
       const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(personaForm) });
@@ -122,7 +122,7 @@ const PersonalAreasModule = () => {
   const handlePersonaDelete = async (id: number) => {
     if (window.confirm('¿Eliminar esta persona?')) {
       try {
-        const response = await fetch(`http://localhost:3001/api/personas/${id}`, { method: 'DELETE' });
+        const response = await fetch(`${API_URL}/personas/${id}`, { method: 'DELETE' });
         if (!response.ok) throw new Error((await response.json()).error || 'Error al eliminar la persona.');
         fetchData();
         showNotification('Persona eliminada con éxito.', 'success');

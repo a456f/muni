@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './SectoresModule.css';
+import { API_URL } from '../config/api';
 import { createPortal } from 'react-dom';
 
 interface Sector {
@@ -38,10 +39,10 @@ const SectoresModule = () => {
 
   const fetchData = async () => {
     try {
-      const resSectores = await fetch('http://localhost:3001/api/sectores');
+      const resSectores = await fetch(`${API_URL}/sectores`);
       if (resSectores.ok) setSectores(await resSectores.json());
 
-      const resZonas = await fetch('http://localhost:3001/api/zonas');
+      const resZonas = await fetch(`${API_URL}/zonas`);
       if (resZonas.ok) setZonas(await resZonas.json());
     } catch (error) { console.error("Error cargando datos:", error); }
   };
@@ -51,8 +52,8 @@ const SectoresModule = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const url = editingId 
-      ? `http://localhost:3001/api/sectores/${editingId}` 
-      : 'http://localhost:3001/api/sectores';
+      ? `${API_URL}/sectores/${editingId}` 
+      : `${API_URL}/sectores`;
     const method = editingId ? 'PUT' : 'POST';
     
     await fetch(url, {
@@ -80,7 +81,7 @@ const SectoresModule = () => {
 
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar sector?')) {
-      await fetch(`http://localhost:3001/api/sectores/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/sectores/${id}`, { method: 'DELETE' });
       fetchData();
     }
   };

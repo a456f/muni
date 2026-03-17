@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './DistritosModule.css';
+import { API_URL } from '../config/api';
 import { createPortal } from 'react-dom';
 
 interface Distrito {
@@ -29,7 +30,7 @@ const DistritosModule = () => {
 
   const fetchDistritos = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/distritos');
+      const res = await fetch(`${API_URL}/distritos`);
       if (res.ok) setDistritos(await res.json());
     } catch (error) { console.error(error); }
   };
@@ -38,9 +39,9 @@ const DistritosModule = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingId 
-      ? `http://localhost:3001/api/distritos/${editingId}` 
-      : 'http://localhost:3001/api/distritos';
+    const url = editingId
+      ? `${API_URL}/distritos/${editingId}`
+      : `${API_URL}/distritos`;
     const method = editingId ? 'PUT' : 'POST';
     
     await fetch(url, {
@@ -68,7 +69,7 @@ const DistritosModule = () => {
 
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar este distrito?')) {
-      await fetch(`http://localhost:3001/api/distritos/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/distritos/${id}`, { method: 'DELETE' });
       fetchDistritos();
     }
   };

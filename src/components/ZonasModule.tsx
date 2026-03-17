@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './ZonasModule.css';
+import { API_URL } from '../config/api';
 import { createPortal } from 'react-dom';
 
 interface Zona {
@@ -39,11 +40,11 @@ const ZonasModule = () => {
   const fetchData = async () => {
     try {
       // Cargar zonas
-      const resZonas = await fetch('http://localhost:3001/api/zonas');
+      const resZonas = await fetch(`${API_URL}/zonas`);
       if (resZonas.ok) setZonas(await resZonas.json());
 
       // Cargar distritos para el select
-      const resDistritos = await fetch('http://localhost:3001/api/distritos');
+      const resDistritos = await fetch(`${API_URL}/distritos`);
       if (resDistritos.ok) setDistritos(await resDistritos.json());
     } catch (error) { console.error("Error cargando datos:", error); }
   };
@@ -52,9 +53,9 @@ const ZonasModule = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingId 
-      ? `http://localhost:3001/api/zonas/${editingId}` 
-      : 'http://localhost:3001/api/zonas';
+    const url = editingId
+      ? `${API_URL}/zonas/${editingId}`
+      : `${API_URL}/zonas`;
     
     const method = editingId ? 'PUT' : 'POST';
     
@@ -83,7 +84,7 @@ const ZonasModule = () => {
 
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar zona?')) {
-      await fetch(`http://localhost:3001/api/zonas/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/zonas/${id}`, { method: 'DELETE' });
       fetchData();
     }
   };

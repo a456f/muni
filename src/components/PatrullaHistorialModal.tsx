@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config/api';
 import { createPortal } from 'react-dom';
 
 interface HistorialEntry {
@@ -34,7 +35,7 @@ const PatrullaHistorialModal = ({ patrolCode, onClose }: Props) => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch('http://localhost:3001/api/historial-asignaciones');
+        const res = await fetch(`${API_URL}/historial-asignaciones`);
         if (res.ok) {
           const allHistory: HistorialEntry[] = await res.json();
           const filtered = allHistory.filter(entry => 

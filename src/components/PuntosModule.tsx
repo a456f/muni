@@ -33,7 +33,7 @@ const PuntosModule = () => {
 
   const fetchData = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/puntos');
+      const res = await fetch(`${API_URL}/puntos`);
       if (res.ok) setPuntos(await res.json());
     } catch (error) { console.error("Error cargando datos:", error); }
   };
@@ -42,9 +42,9 @@ const PuntosModule = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingId 
-      ? `http://localhost:3001/api/puntos/${editingId}` 
-      : 'http://localhost:3001/api/puntos';
+    const url = editingId
+      ? `${API_URL}/puntos/${editingId}`
+      : `${API_URL}/puntos`;
     const method = editingId ? 'PUT' : 'POST';
     
     await fetch(url, {
@@ -72,7 +72,7 @@ const PuntosModule = () => {
 
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar punto geográfico?')) {
-      await fetch(`http://localhost:3001/api/puntos/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/puntos/${id}`, { method: 'DELETE' });
       fetchData();
     }
   };

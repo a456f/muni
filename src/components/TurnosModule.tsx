@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNotification } from './useNotification';
 import Notification from '../hooks/Notification';
 
+import { API_URL } from '../config/api';
 interface Turno {
   id_turno: number;
   nombre_turno: string;
@@ -19,7 +20,7 @@ const TurnosModule = () => {
 
   const fetchData = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/turnos');
+      const res = await fetch(`${API_URL}/turnos`);
       if (res.ok) setTurnos(await res.json());
     } catch (error) { console.error("Error fetching data:", error); }
   };
@@ -28,7 +29,7 @@ const TurnosModule = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingId ? `http://localhost:3001/api/turnos/${editingId}` : 'http://localhost:3001/api/turnos';
+    const url = editingId ? `${API_URL}/turnos/${editingId}` : `${API_URL}/turnos`;
     const method = editingId ? 'PUT' : 'POST';
     try {
       const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
@@ -58,7 +59,7 @@ const TurnosModule = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar este turno?')) {
       try {
-        const response = await fetch(`http://localhost:3001/api/turnos/${id}`, { method: 'DELETE' });
+        const response = await fetch(`${API_URL}/turnos/${id}`, { method: 'DELETE' });
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Error al eliminar el turno.');

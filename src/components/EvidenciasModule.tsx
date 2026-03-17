@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_URL } from '../config/api';
+import { API_URL, BASE_URL } from '../config/api';
 import './EvidenciasModule.css';
 
 interface Evidencia {
@@ -83,7 +83,7 @@ const EvidenciasModule = ({ idIncidencia, onClose }: Props) => {
         const uploadData = JSON.parse(xhr.responseText);
         try {
           // 2. Guardar la referencia de la evidencia en la base de datos
-          const evidenceRes = await fetch('http://localhost:3001/api/evidencias', {
+          const evidenceRes = await fetch(`${API_URL}/evidencias`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ descripcion: form.descripcion, ruta_archivo: uploadData.filePath, id_incidencia: idIncidencia })
@@ -117,7 +117,7 @@ const EvidenciasModule = ({ idIncidencia, onClose }: Props) => {
       setIsUploading(false);
     };
 
-    xhr.open('POST', 'http://localhost:3001/api/upload', true);
+    xhr.open('POST', `${API_URL}/upload`, true);
     xhr.send(formData);
   };
 
@@ -126,7 +126,7 @@ const EvidenciasModule = ({ idIncidencia, onClose }: Props) => {
     if (!path) return '#';
     if (path.startsWith('http')) return path;
     // Aseguramos que apunte al puerto 3001 donde está el backend
-    return `http://localhost:3001/${path}`;
+    return `${BASE_URL}/${path}`;
   };
 
   // Helper para obtener solo el nombre del archivo

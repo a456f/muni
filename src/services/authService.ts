@@ -1,4 +1,5 @@
 // Lógica para conectar con el backend (API)
+import { API_URL } from '../config/api';
 
 export interface User {
   id: number;
@@ -18,7 +19,7 @@ interface LoginResponse {
 export const loginUser = async (email: string, password: string): Promise<LoginResponse> => {
   try {
     // Conectando al backend Node.js en el puerto 3001
-    const response = await fetch('http://localhost:3001/api/login', {
+    const response = await fetch(`${API_URL}/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -42,7 +43,7 @@ export const loginUser = async (email: string, password: string): Promise<LoginR
 
 export const testConnection = async (): Promise<{ success: boolean; message: string }> => {
   try {
-    const response = await fetch('http://localhost:3001/api/test-db');
+    const response = await fetch(`${API_URL}/test-db`);
     const data = await response.json();
     if (response.ok) {
       return { success: true, message: data.message };

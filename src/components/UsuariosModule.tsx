@@ -3,7 +3,7 @@ import './UsuariosModule.css';
 import { createPortal } from 'react-dom';
 import { useNotification } from './useNotification';
 import Notification from '../hooks/Notification';
-
+import { API_URL } from '../config/api';
 interface Usuario {
   id_usuario: number;
   nombre: string;
@@ -35,7 +35,7 @@ const UsuariosModule = () => {
 
   const fetchUsuarios = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/usuarios');
+      const res = await fetch(`${API_URL}/usuarios`);
       if (res.ok) {
         const data = await res.json();
         setUsuarios(data);
@@ -49,9 +49,9 @@ const UsuariosModule = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingId 
-      ? `http://localhost:3001/api/usuarios/${editingId}` 
-      : 'http://localhost:3001/api/usuarios';
+    const url = editingId
+      ? `${API_URL}/usuarios/${editingId}`
+      : `${API_URL}/usuarios`;
     
     const method = editingId ? 'PUT' : 'POST';
     
@@ -89,7 +89,7 @@ const UsuariosModule = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Estás seguro de eliminar este usuario?')) {
       try {
-        const response = await fetch(`http://localhost:3001/api/usuarios/${id}`, { method: 'DELETE' });
+        const response = await fetch(`${API_URL}/usuarios/${id}`, { method: 'DELETE' });
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Error al eliminar el usuario.');

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../config/api';
 
 const PrioridadIncidenciaModule = () => {
   const [items, setItems] = useState<any[]>([]);
@@ -7,7 +8,7 @@ const PrioridadIncidenciaModule = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchData = async () => {
-    const res = await fetch('http://localhost:3001/api/prioridad-incidencia');
+    const res = await fetch(`${API_URL}/prioridad-incidencia`);
     if (res.ok) setItems(await res.json());
   };
 
@@ -15,7 +16,7 @@ const PrioridadIncidenciaModule = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingId ? `http://localhost:3001/api/prioridad-incidencia/${editingId}` : 'http://localhost:3001/api/prioridad-incidencia';
+    const url = editingId ? `${API_URL}/prioridad-incidencia/${editingId}` : `${API_URL}/prioridad-incidencia`;
     const method = editingId ? 'PUT' : 'POST';
     await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     setIsModalOpen(false);
@@ -35,7 +36,7 @@ const PrioridadIncidenciaModule = () => {
 
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar esta prioridad?')) {
-      await fetch(`http://localhost:3001/api/prioridad-incidencia/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/prioridad-incidencia/${id}`, { method: 'DELETE' });
       fetchData();
     }
   };

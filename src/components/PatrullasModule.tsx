@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNotification } from './useNotification';
 import Notification from '../hooks/Notification';
 import PatrullaHistorialModal from './PatrullaHistorialModal';
+import { API_URL } from '../config/api';
 
 interface Patrulla {
   id_patrulla: number;
@@ -25,7 +26,7 @@ const PatrullasModule = () => {
 
   const fetchData = async () => {
     try {
-      const res = await fetch('http://localhost:3001/api/patrullas');
+      const res = await fetch(`${API_URL}/patrullas`);
       if (res.ok) setPatrullas(await res.json());
     } catch (error) { console.error("Error fetching data:", error); }
   };
@@ -34,7 +35,7 @@ const PatrullasModule = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const url = editingId ? `http://localhost:3001/api/patrullas/${editingId}` : 'http://localhost:3001/api/patrullas';
+    const url = editingId ? `${API_URL}/patrullas/${editingId}` : `${API_URL}/patrullas`;
     const method = editingId ? 'PUT' : 'POST';
     try {
       const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
@@ -64,7 +65,7 @@ const PatrullasModule = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('¿Eliminar esta patrulla?')) {
       try {
-        const response = await fetch(`http://localhost:3001/api/patrullas/${id}`, { method: 'DELETE' });
+        const response = await fetch(`${API_URL}/patrullas/${id}`, { method: 'DELETE' });
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Error al eliminar la patrulla.');
