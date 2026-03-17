@@ -33,3 +33,12 @@
     grid-template-columns: 1fr;
   }
 }
+
+.crud-table tr.highlight {
+  animation: highlight-fade 3s ease-out;
+}
+
+@keyframes highlight-fade {
+  0%, 100% { background-color: transparent; }
+  10%, 80% { background-color: rgba(59, 130, 246, 0.15); } /* Azul suave */
+}

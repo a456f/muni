@@ -74,6 +74,7 @@ const IncidenciasModule = ({ user }: Props) => {
   const [evidenceModalId, setEvidenceModalId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { notification, showNotification, hideNotification } = useNotification();
+  const [highlightedId, setHighlightedId] = useState<number | null>(null);
 
   const fetchData = async () => {
     try {
@@ -91,7 +92,21 @@ const IncidenciasModule = ({ user }: Props) => {
     } catch (error) { console.error(error); }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData();
+
+    // Comprobar si hay una incidencia para resaltar desde la notificación
+    const idToHighlight = sessionStorage.getItem('highlightIncidencia');
+    if (idToHighlight) {
+      setHighlightedId(parseInt(idToHighlight, 10));
+      sessionStorage.removeItem('highlightIncidencia');
+
+      // Quitar el resaltado después de unos segundos
+      setTimeout(() => {
+        setHighlightedId(null);
+      }, 3000);
+    }
+  }, []);
 
   // Filtrado
   const filtered = incidencias.filter(i => 
@@ -208,7 +223,7 @@ const IncidenciasModule = ({ user }: Props) => {
           <thead><tr><th>Parte N°</th><th>Tipo Hecho</th><th>Zona</th><th>Lugar</th><th>Sereno</th><th>Fecha</th><th>Acciones</th></tr></thead>
           <tbody>
             {filtered.map(i => (
-              <tr key={i.id_incidencia}>
+              <tr key={i.id_incidencia} className={i.id_incidencia === highlightedId ? 'highlight' : ''}>
                 <td>{i.numero_parte || '-'}</td>
                 <td>{i.tipo_hecho}</td>
                 <td>{i.zona}</td>

@@ -32,7 +32,9 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
   const [geoTab, setGeoTab] = useState('distritos'); // Sub-tab para geografía
   const [configTab, setConfigTab] = useState('tipos'); // Sub-tab para configuración
   const [kpis, setKpis] = useState({ total: 0, resueltas: 0, pendientes: 0, efectividad: 0 });
-  const [realtimeNotification, setRealtimeNotification] = useState<{ message: string; tipo: string; } | null>(null);
+  const [realtimeNotification, setRealtimeNotification] = useState<{ id_incidencia: number; message: string; tipo: string; } | null>(null);
+  const [notifications, setNotifications] = useState<{ id_incidencia: number; message: string; tipo: string; read: boolean }[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
 
   // Cargar KPIs al montar el componente o al cambiar a la pestaña de inicio
@@ -55,8 +57,10 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       const audio = new Audio('/alert.mp3'); 
       audio.play().catch(e => console.log('No se pudo reproducir audio:', e));
 
-      setRealtimeNotification({ message: data.message, tipo: data.tipo });
+      // Mostrar el toast y también agregar a la lista de notificaciones de la campana
+      setRealtimeNotification({ id_incidencia: data.id_incidencia, message: data.message, tipo: data.tipo });
       setIsClosing(false);
+      setNotifications(prev => [{ ...data, read: false }, ...prev]);
       // 3. Actualizar contadores si estamos en inicio
       updateKpis();
     });
@@ -82,6 +86,28 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       setRealtimeNotification(null);
       setIsClosing(false);
     }, 500); // Debe coincidir con la duración de la animación de salida
+  };
+
+  const handleBellClick = () => {
+    setShowNotifications(!showNotifications);
+    // Al abrir el panel, marcamos todas como leídas para resetear el contador
+    if (!showNotifications) {
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    }
+  };
+
+  const handleNotificationClick = (id_incidencia: number) => {
+    setActiveTab('denuncias');
+    // Guardamos el ID en sessionStorage para que el otro componente lo lea
+    sessionStorage.setItem('highlightIncidencia', id_incidencia.toString());
+    // Cerramos los paneles de notificación
+    setShowNotifications(false);
+    setRealtimeNotification(null);
+  };
+
+  const removeNotification = (id_incidencia: number, e: React.MouseEvent) => {
+    e.stopPropagation(); // Evita que el clic en el botón de borrar active el panel
+    setNotifications(prev => prev.filter(n => n.id_incidencia !== id_incidencia));
   };
   const updateKpis = () => {
       fetch(`${API_URL}/kpis`)
@@ -191,6 +217,30 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
             <span className="current">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</span>
           </div>
           
+          <div className="top-bar-actions">
+            <div className="notification-bell" onClick={handleBellClick}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+              {notifications.filter(n => !n.read).length > 0 && (
+                <span className="notification-badge">{notifications.filter(n => !n.read).length}</span>
+              )}
+              {showNotifications && (
+                <div className="notifications-panel" onClick={e => e.stopPropagation()}>
+                  <div className="notifications-header">
+                    <h4>Notificaciones</h4>
+                  </div>
+                  <div className="notifications-list">
+                    {notifications.length === 0 ? <div className="no-notifications">No hay notificaciones</div> :
+                      notifications.map((n, index) => (
+                        <div key={index} className="notification-item-panel" onClick={() => handleNotificationClick(n.id_incidencia)}>
+                          <span>{n.message}</span>
+                          <button className="remove-notification-btn" onClick={(e) => removeNotification(n.id_incidencia, e)}>&times;</button>
+                        </div>
+                      ))
+                    }
+                  </div>
+                </div>
+              )}
+            </div>
           <div className="user-info">
             <button onClick={toggleTheme} className="theme-toggle-btn" title="Cambiar tema">
               {isDarkMode ? (
@@ -210,6 +260,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
               </div>
             </div>
           </div>
+          </div>
         </header>
         <div className="content-area">
           {renderContent()}
@@ -217,7 +268,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       </main>
 
       {realtimeNotification && createPortal(
-        <div className={`realtime-notification ${isClosing ? 'closing' : ''}`}>
+        <div className={`realtime-notification ${isClosing ? 'closing' : ''}`} onClick={() => handleNotificationClick(realtimeNotification.id_incidencia)}>
           <div className="realtime-notification-icon">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
