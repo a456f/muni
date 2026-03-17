@@ -207,6 +207,16 @@ router.post('/incidencias', async (req, res) => {
         await connection.commit();
         res.status(201).json({ message: "Parte de intervención registrado con éxito.", id_incidencia: result.insertId });
 
+        // --- NOTIFICACIÓN EN TIEMPO REAL ---
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('nueva_incidencia', { 
+                message: `¡Nueva incidencia reportada! Parte N° ${numero_parte}`,
+                id_incidencia: result.insertId,
+                tipo: tipo_hecho
+            });
+        }
+
     } catch (err) {
         await connection.rollback();
         if (firmaRuta) { try { fs.unlinkSync(firmaRuta); } catch (e) { console.error("Error al limpiar firma:", e); } }

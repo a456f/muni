@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import mysql from "mysql2/promise";
 import multer from "multer";
 import path from "path";
@@ -9,6 +11,15 @@ import serenoRoutes from './routes/serenoRoutes.js'; // <-- 1. IMPORTAR RUTAS
 
 const app = express();
 const port = 3001; // Puerto diferente a Vite
+
+// Configuración de Socket.io para tiempo real
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*", // Permite conexiones desde cualquier origen (ajustar en producción)
+  }
+});
+app.set('io', io); // Guardamos 'io' para usarlo en las rutas
 
 // Middlewares
 app.use(cors());
@@ -1102,6 +1113,6 @@ app.get('/api/kpis', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.listen(port, () => {
+httpServer.listen(port, () => {
   console.log(`Servidor Node.js corriendo en http://localhost:${port}`);
 });

@@ -15,7 +15,8 @@ import EstadosIncidenciaModule from '../components/EstadosIncidenciaModule';
 import PrioridadIncidenciaModule from '../components/PrioridadIncidenciaModule';
 import type { User } from '../services/authService';
 import AlmacenModule from '../components/AlmacenModule';
-import { API_URL } from '../config/api';
+import { API_URL, BASE_URL } from '../config/api';
+import { io } from 'socket.io-client';
 
 interface DashboardProps {
   user: User;
@@ -33,12 +34,46 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
   // Cargar KPIs al montar el componente o al cambiar a la pestaña de inicio
   useEffect(() => {
     if (activeTab === 'inicio') {
+      updateKpis();
+    }
+  }, [activeTab]);
+
+  // --- LÓGICA DE TIEMPO REAL (SOCKET.IO) ---
+  useEffect(() => {
+    const socket = io(BASE_URL);
+
+    socket.on('connect', () => {
+      console.log('Conectado al servidor de notificaciones');
+    });
+
+    socket.on('nueva_incidencia', (data: any) => {
+      // 1. Reproducir sonido (asegúrate de tener alert.mp3 en la carpeta public)
+      const audio = new Audio('/alert.mp3'); 
+      audio.play().catch(e => console.log('No se pudo reproducir audio:', e));
+
+      // 2. Mostrar notificación visual (usamos alert por ahora, o tu hook si lo expones globalmente)
+      // Lo ideal sería usar un Toast, pero un alert nativo o custom funciona para probar
+      if (Notification.permission === 'granted') {
+         new Notification("Nueva Incidencia", { body: data.message });
+      } else {
+         alert(`🔔 ${data.message}`);
+      }
+      
+      // 3. Actualizar contadores si estamos en inicio
+      updateKpis();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  const updateKpis = () => {
       fetch(`${API_URL}/kpis`)
         .then(res => res.json())
         .then(data => setKpis(data))
         .catch(err => console.error("Error cargando KPIs:", err));
-    }
-  }, [activeTab]);
+  };
 
   const renderContent = () => {
     switch (activeTab) {
