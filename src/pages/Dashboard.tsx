@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import '../styles/Dashboard.css';
 import '../styles/Crud.css'; // Importamos los estilos base para los módulos
 import Sidebar from '../components/Sidebar';
@@ -17,6 +18,7 @@ import type { User } from '../services/authService';
 import AlmacenModule from '../components/AlmacenModule';
 import { API_URL, BASE_URL } from '../config/api';
 import { io } from 'socket.io-client';
+import '../styles/RealtimeNotification.css';
 
 interface DashboardProps {
   user: User;
@@ -30,6 +32,8 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
   const [geoTab, setGeoTab] = useState('distritos'); // Sub-tab para geografía
   const [configTab, setConfigTab] = useState('tipos'); // Sub-tab para configuración
   const [kpis, setKpis] = useState({ total: 0, resueltas: 0, pendientes: 0, efectividad: 0 });
+  const [realtimeNotification, setRealtimeNotification] = useState<{ message: string; tipo: string; } | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
 
   // Cargar KPIs al montar el componente o al cambiar a la pestaña de inicio
   useEffect(() => {
@@ -51,14 +55,8 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       const audio = new Audio('/alert.mp3'); 
       audio.play().catch(e => console.log('No se pudo reproducir audio:', e));
 
-      // 2. Mostrar notificación visual (usamos alert por ahora, o tu hook si lo expones globalmente)
-      // Lo ideal sería usar un Toast, pero un alert nativo o custom funciona para probar
-      if (Notification.permission === 'granted') {
-         new Notification("Nueva Incidencia", { body: data.message });
-      } else {
-         alert(`🔔 ${data.message}`);
-      }
-      
+      setRealtimeNotification({ message: data.message, tipo: data.tipo });
+      setIsClosing(false);
       // 3. Actualizar contadores si estamos en inicio
       updateKpis();
     });
@@ -68,6 +66,23 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
     };
   }, []);
 
+  // Efecto para ocultar automáticamente la notificación
+  useEffect(() => {
+    if (realtimeNotification) {
+      const timer = setTimeout(() => {
+        handleCloseNotification();
+      }, 7000); // Ocultar después de 7 segundos
+      return () => clearTimeout(timer);
+    }
+  }, [realtimeNotification]);
+
+  const handleCloseNotification = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setRealtimeNotification(null);
+      setIsClosing(false);
+    }, 500); // Debe coincidir con la duración de la animación de salida
+  };
   const updateKpis = () => {
       fetch(`${API_URL}/kpis`)
         .then(res => res.json())
@@ -200,6 +215,24 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
           {renderContent()}
         </div>
       </main>
+
+      {realtimeNotification && createPortal(
+        <div className={`realtime-notification ${isClosing ? 'closing' : ''}`}>
+          <div className="realtime-notification-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+          </div>
+          <div className="realtime-notification-content">
+            <h4>¡Nueva Incidencia!</h4>
+            <p>{realtimeNotification.message}</p>
+          </div>
+          <button className="realtime-notification-close" onClick={handleCloseNotification} title="Cerrar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+          </button>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
