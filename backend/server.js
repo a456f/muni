@@ -1113,6 +1113,23 @@ app.get('/api/kpis', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Endpoint para probar la notificación por socket
+app.get('/api/test-notificacion', (req, res) => {
+  const io = req.app.get('io');
+  if (io) {
+    const testData = {
+      message: `¡NOTIFICACIÓN DE PRUEBA! - ${new Date().toLocaleTimeString()}`,
+      id_incidencia: Math.floor(Math.random() * 1000),
+      tipo: 'PRUEBA'
+    };
+    io.emit('nueva_incidencia', testData);
+    console.log('Evento de notificación de prueba emitido:', testData);
+    res.status(200).send('Evento de notificación de prueba emitido. Revisa el dashboard.');
+  } else {
+    res.status(500).send('Socket.io no está inicializado en el servidor.');
+  }
+});
+
 httpServer.listen(port, () => {
   console.log(`Servidor Node.js corriendo en http://localhost:${port}`);
 });
