@@ -44,7 +44,6 @@ interface EquiposApiResponse {
 const EquiposModule = () => {
     const [equipos, setEquipos] = useState<Equipo[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filteredEquipos, setFilteredEquipos] = useState<Equipo[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [tiposEquipo, setTiposEquipo] = useState<TipoEquipo[]>([]);
     const initialFormState = {
@@ -93,30 +92,6 @@ const EquiposModule = () => {
     useEffect(() => {
         fetchData();
     }, [currentPage, searchTerm]);
-
-    useEffect(() => {
-    }, []);
-
-    useEffect(() => {
-        const lowercasedFilter = searchTerm.toLowerCase();
-        const filteredData = equipos.filter(item => {
-            // Handles null values gracefully
-            const check = (val: string | null | undefined) => val ? val.toLowerCase().includes(lowercasedFilter) : false;
-
-            return (
-                check(item.tipo_nombre) ||
-                check(item.descripcion) ||
-                check(item.marca) ||
-                check(item.modelo) ||
-                check(item.numero_serie) ||
-                check(item.identificador) ||
-                check(item.estado) ||
-                check(item.persona_asignada) ||
-                check(item.area_asignada)
-            );
-        });
-        setFilteredEquipos(filteredData);
-    }, [searchTerm, equipos, currentPage]);
 
 
     const resetForm = () => {
@@ -237,14 +212,14 @@ const EquiposModule = () => {
         ];
 
            // Fetch all equipos without pagination
-            const resEquipos = await fetch(`${API_URL}/equipos?searchTerm=${searchTerm}&page=1&limit=100000`); //High limit
+            const resEquipos = await fetch(`${API_URL}/equipos?searchTerm=${searchTerm}&forExport=true`);
             if (!resEquipos.ok) {
-                throw new Error('Error fetching equipos for export.');
+                throw new Error('Error al obtener los equipos para exportar.');
             }
-            const responseJson: EquiposApiResponse = await resEquipos.json();
-            const allEquipos = responseJson.data;
+            const responseJson = await resEquipos.json();
+            const allEquipos = Array.isArray(responseJson.data) ? responseJson.data : [];
 
-        const data = allEquipos.map(item => ({
+            const data = allEquipos.map((item: Equipo) => ({
             ...item,
             identificador: item.identificador || '',
             persona_asignada: item.persona_asignada || '',
@@ -336,7 +311,7 @@ const EquiposModule = () => {
                 <table className="crud-table">
                     <thead><tr><th>Tipo</th><th>Descripción</th><th>Marca/Modelo</th><th>N/S</th><th>Estado</th><th>Asignado a</th><th>Acciones</th></tr></thead>
                     <tbody>
-                        {filteredEquipos.map(item => (
+                        {equipos.map(item => (
                             <tr key={item.id}>
                                 <td>{item.tipo_nombre}</td><td>{item.descripcion}</td><td>{item.marca} {item.modelo}</td><td>{item.numero_serie}</td>
                                 <td><span className={`badge status-${item.estado.toLowerCase()}`}>{item.estado}</span></td>

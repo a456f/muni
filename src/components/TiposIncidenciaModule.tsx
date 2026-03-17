@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config/api';
 
+interface TipoIncidencia {
+  id_tipo: number;
+  nombre: string;
+  codigo: string | null;
+  descripcion: string | null;
+}
+
 const TiposIncidenciaModule = () => {
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<TipoIncidencia[]>([]);
   const [form, setForm] = useState({ nombre: '', codigo: '', descripcion: '' });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,7 +33,7 @@ const TiposIncidenciaModule = () => {
     fetchData();
   };
 
-  const openModal = (item?: any) => {
+  const openModal = (item?: TipoIncidencia) => {
     if (item) {
       setForm({ nombre: item.nombre, codigo: item.codigo || '', descripcion: item.descripcion || '' });
       setEditingId(item.id_tipo);

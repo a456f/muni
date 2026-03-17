@@ -115,6 +115,8 @@ const TiposEquipoModule = () => {
         { header: 'ID', key: 'id', width: 10 },
         { header: 'Nombre Tipo', key: 'nombre', width: 40 },
     ];
+    worksheet.addRows(tipos);
+
     worksheet.eachRow({ includeEmpty: true }, function(row, rowNumber) {
         row.eachCell({ includeEmpty: true }, function(cell) {
             if (rowNumber === 1) {

@@ -714,9 +714,9 @@ app.delete('/api/tipos-equipo/:id', async (req, res) => {
 
 // --- CRUD Equipos ---
 app.get('/api/equipos', async (req, res) => {
-    const { searchTerm, page = 1, limit = 15 } = req.query;
+    const { searchTerm, page = 1, limit = 15, forExport } = req.query;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
     let params = [];
     let whereClause = '';
 
@@ -751,19 +751,30 @@ app.get('/api/equipos', async (req, res) => {
     `;
 
     const countQuery = `SELECT COUNT(*) as total FROM (${subquery}) as equipos_completos ${whereClause}`;
-    const dataQuery = `SELECT * FROM (${subquery}) as equipos_completos ${whereClause} ORDER BY fecha_registro DESC LIMIT ? OFFSET ?`;
+    let dataQuery = `SELECT * FROM (${subquery}) as equipos_completos ${whereClause} ORDER BY fecha_registro DESC`;
+    let dataParams = [...params];
+
+    if (!forExport) {
+        dataQuery += ` LIMIT ? OFFSET ?`;
+        dataParams.push(parseInt(limit, 10), offset);
+    }
 
      try {
+        if (forExport) {
+            const [dataRows] = await db.query(dataQuery, dataParams);
+            // For export, we just return the data array, not the pagination object
+            return res.json({ data: dataRows });
+        }
+
         const [countRows] = await db.query(countQuery, params);
         const totalItems = countRows[0].total;
-        const totalPages = Math.ceil(totalItems / limit);
+        const totalPages = Math.ceil(totalItems / parseInt(limit, 10));
 
-        const dataParams = [...params, parseInt(limit), offset];
         const [dataRows] = await db.query(dataQuery, dataParams);
 
         res.json({
             data: dataRows,
-            pagination: { totalItems, totalPages, currentPage: parseInt(page), limit: parseInt(limit) }
+            pagination: { totalItems, totalPages, currentPage: parseInt(page, 10), limit: parseInt(limit, 10) }
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -1011,7 +1022,57 @@ app.get('/api/historial-equipos/:equipo_id', async (req, res) => {
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+// --- CRUD ZONAS ---
+app.get('/api/zonas', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT z.*, d.nombre as nombre_distrito
+      FROM zonas z
+      LEFT JOIN distritos d ON z.id_distrito = d.id_distrito
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+app.post('/api/zonas', async (req, res) => {
+  const { nombre, id_distrito } = req.body;
+  try {
+    await db.query(
+      "INSERT INTO zonas (nombre, id_distrito) VALUES (?, ?)",
+      [nombre, id_distrito]
+    );
+    res.json({ message: "Zona creada" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/zonas/:id', async (req, res) => {
+  const { nombre, id_distrito } = req.body;
+  try {
+    await db.query(
+      "UPDATE zonas SET nombre = ?, id_distrito = ? WHERE id_zona = ?",
+      [nombre, id_distrito, req.params.id]
+    );
+    res.json({ message: "Zona actualizada" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/zonas/:id', async (req, res) => {
+  try {
+    await db.query(
+      "DELETE FROM zonas WHERE id_zona = ?",
+      [req.params.id]
+    );
+    res.json({ message: "Zona eliminada" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // Endpoint para probar la conexión a la base de datos (Ping)
 app.get('/api/test-db', async (req, res) => {
   try {
