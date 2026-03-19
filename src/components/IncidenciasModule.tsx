@@ -72,6 +72,7 @@ const IncidenciasModule = ({ user }: Props) => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [evidenceModalId, setEvidenceModalId] = useState<number | null>(null);
+  const [signatureModalUrl, setSignatureModalUrl] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { notification, showNotification, hideNotification } = useNotification();
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
@@ -302,17 +303,33 @@ const IncidenciasModule = ({ user }: Props) => {
 
                   {/* Relato */}
                   <textarea placeholder="Descripción / Relato de los hechos" value={form.descripcion_relato} onChange={e => setForm({...form, descripcion_relato: e.target.value})} required className="full-width" style={{minHeight: "100px"}} />
-                  
-                  {/* Firma (Ruta manual si es necesario, aunque idealmente viene de la app) */}
-                  <input placeholder="Ruta de Firma (opcional)" value={form.firma_ruta} onChange={e => setForm({...form, firma_ruta: e.target.value})} className="full-width" disabled />
-
+          
                   {form.firma_ruta && (
-                    <div className="full-width" style={{ marginTop: '10px', gridColumn: '1 / -1', width: '100%' }}>
+                    <div className="full-width" style={{ marginTop: '10px', gridColumn: '1 / -1' }}>
                       <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Firma Registrada:</label>
-                      <div style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '10px', textAlign: 'center', backgroundColor: '#f8f9fa', overflow: 'hidden' }}>
-                        {/* Se remueve '/api' de la URL base para apuntar a la raiz donde se sirven los estáticos (uploads) */}
-                        <img src={`${API_URL.replace(/\/api\/?$/, '')}/${form.firma_ruta}`} alt="Firma del involucrado" style={{ maxWidth: '100%', height: 'auto', maxHeight: '200px', objectFit: 'contain' }} />
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSignatureModalUrl(`${API_URL.replace(/\/api\/?$/, '')}/${form.firma_ruta}`)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px 16px',
+                          backgroundColor: '#f1f5f9',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '0.95rem',
+                          color: '#334155',
+                          fontWeight: 500
+                        }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                          <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        Ver Firma
+                      </button>
                     </div>
                   )}
                 </div>
@@ -328,6 +345,23 @@ const IncidenciasModule = ({ user }: Props) => {
 
       {evidenceModalId && createPortal(
         <EvidenciasModule idIncidencia={evidenceModalId} onClose={() => setEvidenceModalId(null)} />
+      , document.body)}
+
+      {signatureModalUrl && createPortal(
+        <div className="modal-overlay" onClick={() => setSignatureModalUrl(null)}>
+          <div className="modal-content" style={{maxWidth: '600px', width: '90%', textAlign: 'center'}} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Firma del Involucrado</h3>
+              <button className="modal-close" onClick={() => setSignatureModalUrl(null)}>×</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', background: '#fff' }}>
+              <img src={signatureModalUrl} alt="Firma" style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} />
+            </div>
+            <div className="modal-footer">
+              <button className="login-button" onClick={() => setSignatureModalUrl(null)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
       , document.body)}
     </div>
   );
