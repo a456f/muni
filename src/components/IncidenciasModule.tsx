@@ -307,11 +307,11 @@ const IncidenciasModule = ({ user }: Props) => {
                   <input placeholder="Ruta de Firma (opcional)" value={form.firma_ruta} onChange={e => setForm({...form, firma_ruta: e.target.value})} className="full-width" disabled />
 
                   {form.firma_ruta && (
-                    <div className="full-width" style={{ marginTop: '10px' }}>
+                    <div className="full-width" style={{ marginTop: '10px', gridColumn: '1 / -1', width: '100%' }}>
                       <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Firma Registrada:</label>
-                      <div style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '10px', textAlign: 'center', backgroundColor: '#f8f9fa' }}>
+                      <div style={{ border: '1px solid #ccc', borderRadius: '4px', padding: '10px', textAlign: 'center', backgroundColor: '#f8f9fa', overflow: 'hidden' }}>
                         {/* Se remueve '/api' de la URL base para apuntar a la raiz donde se sirven los estáticos (uploads) */}
-                        <img src={`${API_URL.replace(/\/api\/?$/, '')}/${form.firma_ruta}`} alt="Firma del involucrado" style={{ maxWidth: '100%', maxHeight: '150px' }} />
+                        <img src={`${API_URL.replace(/\/api\/?$/, '')}/${form.firma_ruta}`} alt="Firma del involucrado" style={{ maxWidth: '100%', height: 'auto', maxHeight: '200px', objectFit: 'contain' }} />
                       </div>
                     </div>
                   )}
