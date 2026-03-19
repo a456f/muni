@@ -1,0 +1,62 @@
+.salud-module {
+  width: 100%;
+}
+
+.salud-module h4 {
+  color: var(--primary-color, #2563eb);
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.5rem;
+}
+
+.salud-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.salud-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.salud-search-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.salud-search-box .input-wrapper {
+  flex: 1;
+}
+
+.salud-search-box .search-btn {
+  height: 42px; /* Altura estándar de inputs */
+  width: 42px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1px;
+}
+
+.salud-form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+  .salud-grid-3, .salud-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}

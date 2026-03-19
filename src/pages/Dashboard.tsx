@@ -16,6 +16,7 @@ import EstadosIncidenciaModule from '../components/EstadosIncidenciaModule';
 import PrioridadIncidenciaModule from '../components/PrioridadIncidenciaModule';
 import type { User } from '../services/authService';
 import AlmacenModule from '../components/AlmacenModule';
+import SaludModule from '../components/SaludModule';
 import { API_URL, BASE_URL } from '../config/api';
 import { io } from 'socket.io-client';
 import '../styles/RealtimeNotification.css';
@@ -153,6 +154,8 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
         return <PatrullajeModule />;
       case 'almacen':
         return <AlmacenModule />;
+      case 'salud':
+        return <SaludModule />;
       case 'geografia':
         return (
           <div>

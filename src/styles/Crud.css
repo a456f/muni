@@ -85,7 +85,8 @@
 }
 
 .crud-form input, 
-.crud-form select {
+.crud-form select,
+.crud-form textarea {
   padding: 0.625rem 0.875rem;
   border: 1px solid var(--border-light);
   border-radius: 6px;
@@ -95,10 +96,13 @@
   transition: all 0.2s;
   background-color: var(--bg-input);
   color: var(--text-main);
+  font-family: inherit; /* Para heredar la fuente del sistema */
+  resize: vertical;     /* Permite redimensionar solo verticalmente */
 }
 
 .crud-form input:focus, 
-.crud-form select:focus {
+.crud-form select:focus,
+.crud-form textarea:focus {
   outline: none;
   border-color: var(--brand-blue);
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);

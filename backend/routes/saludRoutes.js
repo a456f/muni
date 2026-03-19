@@ -62,6 +62,54 @@ router.get('/atenciones', async (req, res) => {
     }
 });
 
+// Obtener detalle completo de una atención
+router.get('/atenciones/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 1. Datos principales
+        const [mainRows] = await db.query(`
+            SELECT 
+                a.*,
+                p.dni, p.nombres, p.apellido_paterno, p.apellido_materno, p.edad, p.sexo,
+                o.direccion, o.telefono, o.operador, o.hora_llamada, o.hora_ingreso,
+                e.motivo, e.enfermedad_actual, e.examen_fisico,
+                c.tipo as clasificacion
+            FROM atencion a
+            JOIN paciente p ON a.paciente_id = p.id
+            LEFT JOIN ocurrencia o ON o.atencion_id = a.id
+            LEFT JOIN evaluacion_medica e ON e.atencion_id = a.id
+            LEFT JOIN clasificacion c ON c.atencion_id = a.id
+            WHERE a.id = ?
+        `, [id]);
+
+        if (mainRows.length === 0) {
+            return res.status(404).json({ message: "Atención no encontrada" });
+        }
+
+        const atencion = mainRows[0];
+
+        // 2. Diagnósticos
+        const [diagnosticos] = await db.query("SELECT descripcion FROM diagnostico WHERE atencion_id = ?", [id]);
+
+        // 3. Tratamientos
+        const [tratamientos] = await db.query("SELECT descripcion FROM tratamiento WHERE atencion_id = ?", [id]);
+
+        // 4. Personal
+        const [personal] = await db.query(`
+            SELECT p.nombre, p.rol 
+            FROM atencion_personal ap
+            JOIN personal p ON ap.personal_id = p.id
+            WHERE ap.atencion_id = ?
+        `, [id]);
+
+        res.json({ ...atencion, diagnosticos, tratamientos, personal });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // REGISTRAR NUEVA ATENCIÓN
 // Este endpoint maneja la creación de registros en múltiples tablas usando una transacción
 router.post('/atenciones', async (req, res) => {
