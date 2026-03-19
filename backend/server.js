@@ -8,6 +8,7 @@ import path from "path";
 import fs from "fs";
 import bcrypt from "bcrypt";
 import serenoRoutes from './routes/serenoRoutes.js'; // <-- 1. IMPORTAR RUTAS
+import saludRoutes from './routes/saludRoutes.js'; // <-- Rutas de Salud
 
 const app = express();
 const port = 3001; // Puerto diferente a Vite
@@ -155,6 +156,7 @@ app.put('/api/usuarios/:id/toggle-status', async (req, res) => {
 
 // --- USAR RUTAS DE SERENOS ---
 app.use('/api/serenos', serenoRoutes);
+app.use('/api/salud', saludRoutes);
 
 
 // --- CRUD PATRULLAS ---
