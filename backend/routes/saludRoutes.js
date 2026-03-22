@@ -24,7 +24,20 @@ router.get('/pacientes/buscar/:dni', async (req, res) => {
 
 router.get('/personal', async (req, res) => {
     try {
-        const [rows] = await db.query("SELECT * FROM personal ORDER BY nombre");
+        const [rows] = await db.query(`
+            SELECT 
+                p.id_personal AS id,
+                p.id_personal,
+                CONCAT(p.nombres, ' ', p.apellidos) AS nombre,
+                COALESCE(a.nombre, 'Sin area') AS area,
+                'Personal de Salud' AS rol
+            FROM personal p
+            LEFT JOIN areas a ON a.id = p.id_area
+            WHERE p.estado = 1
+              AND a.nombre IS NOT NULL
+              AND LOWER(a.nombre) LIKE '%salud%'
+            ORDER BY p.nombres, p.apellidos
+        `);
         res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -45,18 +58,24 @@ router.post('/personal', async (req, res) => {
 
 router.get('/atenciones', async (req, res) => {
     try {
-        // Obtenemos un resumen de las atenciones
+        const page = Math.max(1, parseInt(req.query.page) || 1);
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+        const offset = (page - 1) * limit;
+
+        const [[{ total }]] = await db.query("SELECT COUNT(*) as total FROM atencion");
+
         const [rows] = await db.query(`
-            SELECT 
-                a.id, a.numero, a.fecha, a.hora_inicio, 
+            SELECT
+                a.id, a.numero, a.fecha, a.hora_inicio,
                 p.dni, p.nombres, p.apellido_paterno, p.apellido_materno,
                 c.tipo as clasificacion
             FROM atencion a
             JOIN paciente p ON a.paciente_id = p.id
             LEFT JOIN clasificacion c ON c.atencion_id = a.id
             ORDER BY a.fecha DESC, a.hora_inicio DESC
-        `);
-        res.json(rows);
+            LIMIT ? OFFSET ?
+        `, [limit, offset]);
+        res.json({ data: rows, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -97,9 +116,12 @@ router.get('/atenciones/:id', async (req, res) => {
 
         // 4. Personal
         const [personal] = await db.query(`
-            SELECT p.nombre, p.rol 
+            SELECT 
+                CONCAT(p.nombres, ' ', p.apellidos) AS nombre,
+                COALESCE(a.nombre, 'Salud') AS rol
             FROM atencion_personal ap
-            JOIN personal p ON ap.personal_id = p.id
+            JOIN personal p ON ap.personal_id = p.id_personal
+            LEFT JOIN areas a ON a.id = p.id_area
             WHERE ap.atencion_id = ?
         `, [id]);
 

@@ -7,18 +7,21 @@ interface Sector {
   id_sector: number;
   nombre: string;
   id_zona: number;
+  descripcion: string | null;
   nombre_zona?: string;
+  nombre_distrito?: string;
 }
 
 interface Zona {
   id_zona: number;
   nombre: string;
+  nombre_distrito?: string;
 }
 
 const SectoresModule = () => {
   const [sectores, setSectores] = useState<Sector[]>([]);
   const [zonas, setZonas] = useState<Zona[]>([]);
-  const [form, setForm] = useState({ nombre: '', id_zona: '' });
+  const [form, setForm] = useState({ nombre: '', id_zona: '', descripcion: '' });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -62,7 +65,7 @@ const SectoresModule = () => {
       body: JSON.stringify(form)
     });
     
-    setForm({ nombre: '', id_zona: '' });
+    setForm({ nombre: '', id_zona: '', descripcion: '' });
     setEditingId(null);
     setIsModalOpen(false);
     fetchData();
@@ -70,10 +73,10 @@ const SectoresModule = () => {
 
   const openModal = (s?: Sector) => {
     if (s) {
-      setForm({ nombre: s.nombre, id_zona: s.id_zona.toString() });
+      setForm({ nombre: s.nombre, id_zona: s.id_zona.toString(), descripcion: s.descripcion || '' });
       setEditingId(s.id_sector);
     } else {
-      setForm({ nombre: '', id_zona: '' });
+      setForm({ nombre: '', id_zona: '', descripcion: '' });
       setEditingId(null);
     }
     setIsModalOpen(true);
@@ -115,11 +118,15 @@ const SectoresModule = () => {
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
                 <div className="crud-form">
-                  <input placeholder="Nombre del Sector" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required />
+                  <label>Nombre del Sector</label>
+                  <input placeholder="Ej: Sector A" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} required />
+                  <label>Zona</label>
                   <select value={form.id_zona} onChange={e => setForm({...form, id_zona: e.target.value})} required>
-                    <option value="">Seleccione una Zona</option>
-                    {zonas.map(z => (<option key={z.id_zona} value={z.id_zona}>{z.nombre}</option>))}
+                    <option value="">-- Seleccione zona --</option>
+                    {zonas.map(z => (<option key={z.id_zona} value={z.id_zona}>{z.nombre} {z.nombre_distrito ? `(${z.nombre_distrito})` : ''}</option>))}
                   </select>
+                  <label>Descripción (opcional)</label>
+                  <textarea placeholder="Descripción del sector..." value={form.descripcion} onChange={e => setForm({...form, descripcion: e.target.value})} rows={2} />
                 </div>
               </div>
               <div className="modal-footer">
@@ -131,12 +138,13 @@ const SectoresModule = () => {
         </div>
       , document.body)}
 
+      <div className="table-responsive" style={{ marginTop: '1rem' }}>
       <table className="crud-table">
-        <thead><tr><th>ID</th><th>Nombre Sector</th><th>Zona</th><th>Acciones</th></tr></thead>
+        <thead><tr><th>Sector</th><th>Zona</th><th>Distrito</th><th>Descripción</th><th>Acciones</th></tr></thead>
         <tbody>
           {currentItems.map(s => (
             <tr key={s.id_sector}>
-              <td>{s.id_sector}</td><td>{s.nombre}</td><td>{s.nombre_zona || 'Sin zona'}</td>
+              <td style={{ fontWeight: 600 }}>{s.nombre}</td><td>{s.nombre_zona || '-'}</td><td>{s.nombre_distrito || '-'}</td><td style={{ color: 'var(--text-muted)' }}>{s.descripcion || '-'}</td>
               <td>
                 <button className="action-btn edit" onClick={() => openModal(s)} title="Editar">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -149,6 +157,7 @@ const SectoresModule = () => {
           ))}
         </tbody>
       </table>
+      </div>
       <div className="pagination">
         <span className="pagination-info">Mostrando {filteredSectores.length > 0 ? indexOfFirstItem + 1 : 0} - {Math.min(indexOfLastItem, filteredSectores.length)} de {filteredSectores.length}</span>
         <div className="pagination-buttons">

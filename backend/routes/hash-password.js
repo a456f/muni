@@ -2,7 +2,6 @@ import mysql from 'mysql2/promise';
 import bcrypt from 'bcrypt';
 import readline from 'readline/promises';
 
-// --- Configuración de la Base de Datos (copiada de server.js) ---
 const dbConfig = {
   host: '127.0.0.1',
   user: 'root',
@@ -19,38 +18,35 @@ const rl = readline.createInterface({
 
 async function updatePassword() {
   let connection;
-  try {
-    const email = await rl.question('Introduce el correo del administrador a actualizar: ');
-    const newPassword = await rl.question(`Introduce la NUEVA contraseña para "${email}": `);
 
-    if (!email || !newPassword) {
-      console.error('El correo y la contraseña no pueden estar vacíos.');
+  try {
+    const username = await rl.question('Introduce el username a actualizar: ');
+    const newPassword = await rl.question(`Introduce la nueva contrasena para "${username}": `);
+
+    if (!username || !newPassword) {
+      console.error('El username y la contrasena no pueden estar vacios.');
       return;
     }
 
-    console.log('Conectando a la base de datos...');
     connection = await mysql.createConnection(dbConfig);
-
-    console.log('Generando hash de la contraseña...');
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    console.log(`Actualizando la contraseña para el usuario ${email}...`);
     const [result] = await connection.execute(
-      'UPDATE usuarios SET password_hash = ? WHERE correo = ?',
-      [hashedPassword, email]
+      'UPDATE usuario SET password_hash = ? WHERE username = ?',
+      [hashedPassword, username]
     );
 
     if (result.affectedRows > 0) {
-      console.log('\n✅ ¡Contraseña actualizada con éxito!');
-      console.log(`Ahora puedes iniciar sesión con el correo "${email}" y tu nueva contraseña.`);
+      console.log(`Contrasena actualizada correctamente para "${username}".`);
     } else {
-      console.error(`\n❌ No se encontró ningún usuario con el correo "${email}". No se realizó ninguna actualización.`);
+      console.error(`No se encontro ninguna cuenta con username "${username}".`);
     }
-
   } catch (error) {
-    console.error('\nHubo un error durante el proceso:', error.message);
+    console.error('Hubo un error durante el proceso:', error.message);
   } finally {
-    if (connection) await connection.end();
+    if (connection) {
+      await connection.end();
+    }
     rl.close();
   }
 }

@@ -7,24 +7,56 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import bcrypt from "bcrypt";
+import accessRoutes from './routes/accessRoutes.js';
 import serenoRoutes from './routes/serenoRoutes.js'; // <-- 1. IMPORTAR RUTAS
 import saludRoutes from './routes/saludRoutes.js'; // <-- Rutas de Salud
+import almacenRoutes from './routes/almacenRoutes.js'; // <-- Rutas de Almacén
 
 const app = express();
 const port = 3001; // Puerto diferente a Vite
 
-// Configuración de Socket.io para tiempo real
+// Orígenes permitidos
+const allowedOrigins = [
+  'http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000',
+  'http://127.0.0.1:5173', 'http://127.0.0.1:5174'
+];
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: {
-    origin: "*", // Permite conexiones desde cualquier origen (ajustar en producción)
-  }
+  cors: { origin: allowedOrigins }
 });
-app.set('io', io); // Guardamos 'io' para usarlo en las rutas
+app.set('io', io);
 
 // Middlewares
-app.use(cors());
-app.use(express.json());
+app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(express.json({ limit: '5mb' }));
+
+// Rate limiting simple para login endpoints
+const loginAttempts = new Map();
+const rateLimiter = (req, res, next) => {
+  const ip = req.ip || req.connection.remoteAddress;
+  const now = Date.now();
+  const windowMs = 60000; // 1 minuto
+  const maxAttempts = 10;
+
+  const attempts = loginAttempts.get(ip) || [];
+  const recent = attempts.filter(t => now - t < windowMs);
+
+  if (recent.length >= maxAttempts) {
+    return res.status(429).json({ message: 'Demasiados intentos. Espere un minuto.' });
+  }
+
+  recent.push(now);
+  loginAttempts.set(ip, recent);
+
+  // Limpiar IPs viejas cada 5 min
+  if (Math.random() < 0.01) {
+    for (const [key, val] of loginAttempts) {
+      if (val.every(t => now - t > windowMs * 5)) loginAttempts.delete(key);
+    }
+  }
+  next();
+};
 
 // Constante para el "salting" de bcrypt
 const saltRounds = 10;
@@ -43,7 +75,7 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + path.extname(file.originalname)); // Nombre único para evitar colisiones
   }
 });
-const upload = multer({ storage: storage });
+const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } });
 
 // Configuración de conexión a Laragon (MySQL)
 const dbConfig = {
@@ -67,8 +99,13 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   res.json({ filePath: `uploads/${req.file.filename}` });
 });
 
+app.post('/api/login', rateLimiter);
+app.post('/api/serenos/login', rateLimiter);
+app.post('/api/almacen/login', rateLimiter);
+app.use('/api', accessRoutes);
+
 // Endpoint de Login
-app.post('/api/login', async (req, res) => {
+app.post('/api/legacy-login', rateLimiter, async (req, res) => {
 
   const { email, password } = req.body;
   try {
@@ -109,14 +146,14 @@ app.post('/api/login', async (req, res) => {
 });
 
 // --- CRUD USUARIOS ---
-app.get('/api/usuarios', async (req, res) => {
+app.get('/api/legacy-usuarios', async (req, res) => {
   try {
     const [rows] = await db.query("SELECT * FROM usuarios");
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/usuarios', async (req, res) => {
+app.post('/api/legacy-usuarios', async (req, res) => {
   const { nombre, correo, password, telefono } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -125,7 +162,7 @@ app.post('/api/usuarios', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/usuarios/:id', async (req, res) => {
+app.put('/api/legacy-usuarios/:id', async (req, res) => {
   const { nombre, correo, telefono } = req.body;
   try {
     await db.query("UPDATE usuarios SET nombre = ?, correo = ?, telefono = ? WHERE id_usuario = ?", [nombre, correo, telefono, req.params.id]);
@@ -133,14 +170,14 @@ app.put('/api/usuarios/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.delete('/api/usuarios/:id', async (req, res) => {
+app.delete('/api/legacy-usuarios/:id', async (req, res) => {
   try {
     await db.query("DELETE FROM usuarios WHERE id_usuario = ?", [req.params.id]);
     res.json({ message: "Usuario eliminado" });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/usuarios/:id/toggle-status', async (req, res) => {
+app.put('/api/legacy-usuarios/:id/toggle-status', async (req, res) => {
   try {
       const [rows] = await db.query("SELECT estado FROM usuarios WHERE id_usuario = ?", [req.params.id]);
       if (rows.length === 0) {
@@ -157,6 +194,7 @@ app.put('/api/usuarios/:id/toggle-status', async (req, res) => {
 // --- USAR RUTAS DE SERENOS ---
 app.use('/api/serenos', serenoRoutes);
 app.use('/api/salud', saludRoutes);
+app.use('/api/almacen', almacenRoutes);
 
 
 // --- CRUD PATRULLAS ---
@@ -164,16 +202,29 @@ app.get('/api/patrullas', async (req, res) => {
   try { 
     const [rows] = await db.query(`
       SELECT 
-        p.*,
-        ANY_VALUE(ap.id_asignacion) as id_asignacion,
-        ANY_VALUE(s.nombres) as nombres,
-        ANY_VALUE(s.apellidos) as apellidos,
-        ANY_VALUE(t.nombre_turno) as nombre_turno
+        p.id_patrulla,
+        p.codigo,
+        p.tipo,
+        ap.id_asignacion,
+        ap.fecha as fecha_asignacion,
+        ap.id_personal,
+        ap.id_turno,
+        per.codigo_personal,
+        per.nombres,
+        per.apellidos,
+        CONCAT(per.apellidos, ', ', per.nombres) as sereno_nombre,
+        t.nombre_turno,
+        t.hora_inicio,
+        t.hora_fin,
+        CASE
+          WHEN ap.id_asignacion IS NULL THEN 'LIBRE'
+          ELSE 'ASIGNADA'
+        END as estado_operativo
       FROM patrullas p
       LEFT JOIN asignacion_patrullas ap ON p.id_patrulla = ap.id_patrulla
-      LEFT JOIN serenos s ON ap.id_sereno = s.id_sereno
+      LEFT JOIN personal per ON ap.id_personal = per.id_personal
       LEFT JOIN turnos t ON ap.id_turno = t.id_turno
-      GROUP BY p.id_patrulla
+      ORDER BY p.codigo ASC
     `); 
     res.json(rows); 
   }
@@ -221,9 +272,10 @@ app.get('/api/asignaciones', async (req, res) => {
       SELECT 
         ap.id_asignacion,
         ap.fecha,
-        s.id_sereno,
-        s.nombres,
-        s.apellidos,
+        per.id_personal as id_sereno,
+        per.id_personal as id_personal,
+        per.nombres,
+        per.apellidos,
         p.id_patrulla,
         p.codigo as codigo_patrulla,
         t.id_turno,
@@ -231,7 +283,7 @@ app.get('/api/asignaciones', async (req, res) => {
         t.hora_inicio,
         t.hora_fin
       FROM asignacion_patrullas ap
-      JOIN serenos s ON ap.id_sereno = s.id_sereno
+      JOIN personal per ON ap.id_personal = per.id_personal
       JOIN patrullas p ON ap.id_patrulla = p.id_patrulla
       JOIN turnos t ON ap.id_turno = t.id_turno
       ORDER BY ap.fecha DESC, t.hora_inicio
@@ -247,7 +299,7 @@ app.post('/api/asignaciones', async (req, res) => {
     await connection.beginTransaction();
 
     // Lógica simplificada: Un sereno o patrulla solo puede tener una asignación a la vez, sin importar fecha o turno.
-    const [existingSereno] = await connection.query("SELECT id_asignacion FROM asignacion_patrullas WHERE id_sereno = ?", [id_sereno]);
+    const [existingSereno] = await connection.query("SELECT id_asignacion FROM asignacion_patrullas WHERE id_personal = ?", [id_sereno]);
     if (existingSereno.length > 0) {
       throw new Error('Este sereno ya tiene una asignación. Elimine la anterior para continuar.');
     }
@@ -256,10 +308,10 @@ app.post('/api/asignaciones', async (req, res) => {
     if (existingPatrulla.length > 0) {
       throw new Error('Esta patrulla ya tiene una asignación. Elimine la anterior para continuar.');
     }
-    await connection.query("INSERT INTO asignacion_patrullas (id_sereno, id_patrulla, id_turno, fecha) VALUES (?, ?, ?, ?)", [id_sereno, id_patrulla, id_turno, fecha]);
+    await connection.query("INSERT INTO asignacion_patrullas (id_personal, id_patrulla, id_turno, fecha) VALUES (?, ?, ?, ?)", [id_sereno, id_patrulla, id_turno, fecha]);
 
     // Registrar en historial
-    const [[sereno]] = await connection.query("SELECT CONCAT(nombres, ' ', apellidos) as nombre_completo FROM serenos WHERE id_sereno = ?", [id_sereno]);
+    const [[sereno]] = await connection.query("SELECT CONCAT(nombres, ' ', apellidos) as nombre_completo FROM personal WHERE id_personal = ?", [id_sereno]);
     const [[patrulla]] = await connection.query("SELECT codigo FROM patrullas WHERE id_patrulla = ?", [id_patrulla]);
     const [[turno]] = await connection.query("SELECT nombre_turno FROM turnos WHERE id_turno = ?", [id_turno]);
     const detalles = `Sereno '${sereno.nombre_completo}' asignado a patrulla '${patrulla.codigo}' en turno '${turno.nombre_turno}' para el ${new Date(fecha).toLocaleDateString()}.`;
@@ -283,10 +335,10 @@ app.put('/api/asignaciones/:id', async (req, res) => {
     await connection.beginTransaction();
 
     // 1. Obtener datos ANTES de la actualización para el historial
-    const [[oldAssignment]] = await connection.query("SELECT s.nombres as sereno_nombre, s.apellidos as sereno_apellido, p.codigo as patrulla_codigo FROM asignacion_patrullas ap JOIN serenos s ON ap.id_sereno = s.id_sereno JOIN patrullas p ON ap.id_patrulla = p.id_patrulla WHERE ap.id_asignacion = ?", [id]);
+    const [[oldAssignment]] = await connection.query("SELECT per.nombres as sereno_nombre, per.apellidos as sereno_apellido, p.codigo as patrulla_codigo FROM asignacion_patrullas ap JOIN personal per ON ap.id_personal = per.id_personal JOIN patrullas p ON ap.id_patrulla = p.id_patrulla WHERE ap.id_asignacion = ?", [id]);
 
     // 2. Verificar conflictos (que el nuevo sereno o patrulla no estén ya asignados en OTRA asignación)
-    const [existingSereno] = await connection.query("SELECT id_asignacion FROM asignacion_patrullas WHERE id_sereno = ? AND id_asignacion != ?", [id_sereno, id]);
+    const [existingSereno] = await connection.query("SELECT id_asignacion FROM asignacion_patrullas WHERE id_personal = ? AND id_asignacion != ?", [id_sereno, id]);
     if (existingSereno.length > 0) {
       throw new Error('El sereno de destino ya tiene otra asignación.');
     }
@@ -296,10 +348,10 @@ app.put('/api/asignaciones/:id', async (req, res) => {
     }
 
     // 3. Actualizar la asignación
-    await connection.query("UPDATE asignacion_patrullas SET id_sereno = ?, id_patrulla = ?, id_turno = ?, fecha = ? WHERE id_asignacion = ?", [id_sereno, id_patrulla, id_turno, fecha, id]);
+    await connection.query("UPDATE asignacion_patrullas SET id_personal = ?, id_patrulla = ?, id_turno = ?, fecha = ? WHERE id_asignacion = ?", [id_sereno, id_patrulla, id_turno, fecha, id]);
 
     // 4. Registrar en historial
-    const [[newSereno]] = await connection.query("SELECT CONCAT(nombres, ' ', apellidos) as nombre_completo FROM serenos WHERE id_sereno = ?", [id_sereno]);
+    const [[newSereno]] = await connection.query("SELECT CONCAT(nombres, ' ', apellidos) as nombre_completo FROM personal WHERE id_personal = ?", [id_sereno]);
     const [[newPatrulla]] = await connection.query("SELECT codigo FROM patrullas WHERE id_patrulla = ?", [id_patrulla]);
     const detalles = `Transferencia de patrulla '${newPatrulla.codigo}' de '${oldAssignment.sereno_nombre} ${oldAssignment.sereno_apellido}' a '${newSereno.nombre_completo}'.`;
     await connection.query("INSERT INTO historial_asignaciones (detalles, tipo_operacion) VALUES (?, 'TRANSFERENCIA')", [detalles]);
@@ -314,6 +366,45 @@ app.put('/api/asignaciones/:id', async (req, res) => {
   }
 });
 
+app.put('/api/asignaciones/:id/devolver', async (req, res) => {
+  const { id } = req.params;
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [[assignment]] = await connection.query(`
+      SELECT 
+        ap.id_asignacion,
+        ap.fecha,
+        per.nombres,
+        per.apellidos,
+        p.codigo as patrulla_codigo,
+        t.nombre_turno
+      FROM asignacion_patrullas ap
+      JOIN personal per ON ap.id_personal = per.id_personal
+      JOIN patrullas p ON ap.id_patrulla = p.id_patrulla
+      JOIN turnos t ON ap.id_turno = t.id_turno
+      WHERE ap.id_asignacion = ?
+    `, [id]);
+
+    if (!assignment) {
+      throw new Error('La asignacion no existe.');
+    }
+
+    const detalles = `Patrulla '${assignment.patrulla_codigo}' devuelta al almacen desde '${assignment.nombres} ${assignment.apellidos}' en turno '${assignment.nombre_turno}' (${new Date(assignment.fecha).toLocaleDateString()}).`;
+    await connection.query("INSERT INTO historial_asignaciones (detalles, tipo_operacion) VALUES (?, 'DEVOLUCION')", [detalles]);
+    await connection.query("DELETE FROM asignacion_patrullas WHERE id_asignacion = ?", [id]);
+
+    await connection.commit();
+    res.json({ message: 'Patrulla devuelta al almacen correctamente.' });
+  } catch (err) {
+    await connection.rollback();
+    res.status(err.message.includes('no existe') ? 404 : 500).json({ error: err.message });
+  } finally {
+    connection.release();
+  }
+});
+
 app.delete('/api/asignaciones/:id', async (req, res) => {
   const connection = await db.getConnection();
   try {
@@ -321,9 +412,9 @@ app.delete('/api/asignaciones/:id', async (req, res) => {
 
     // 1. Obtener datos para el historial
     const [[assignment]] = await connection.query(`
-      SELECT s.nombres, s.apellidos, p.codigo as patrulla_codigo, t.nombre_turno, ap.fecha
+      SELECT per.nombres, per.apellidos, p.codigo as patrulla_codigo, t.nombre_turno, ap.fecha
       FROM asignacion_patrullas ap
-      JOIN serenos s ON ap.id_sereno = s.id_sereno
+      JOIN personal per ON ap.id_personal = per.id_personal
       JOIN patrullas p ON ap.id_patrulla = p.id_patrulla
       JOIN turnos t ON ap.id_turno = t.id_turno
       WHERE ap.id_asignacion = ?
@@ -534,14 +625,32 @@ app.delete('/api/prioridad-incidencia/:id', async (req, res) => {
 // --- CRUD INCIDENCIAS ---
 app.get('/api/incidencias', async (req, res) => {
   try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const offset = (page - 1) * limit;
+    const search = req.query.search || '';
+
+    let where = '';
+    const params = [];
+    if (search) {
+      where = `WHERE i.numero_parte LIKE ? OR i.tipo_hecho LIKE ? OR i.descripcion_relato LIKE ? OR i.zona LIKE ?`;
+      const s = `%${search}%`;
+      params.push(s, s, s, s);
+    }
+
+    const [[{ total }]] = await db.query(`SELECT COUNT(*) as total FROM incidencias i ${where}`, params);
+
     const [rows] = await db.query(`
       SELECT i.*,
-             CONCAT(s.nombres, ' ', s.apellidos) as nombre_sereno
+             CONCAT(per.nombres, ' ', per.apellidos) as nombre_sereno
       FROM incidencias i
-      LEFT JOIN serenos s ON i.id_sereno = s.id_sereno
+      LEFT JOIN personal per ON i.id_sereno = per.id_personal
+      ${where}
       ORDER BY i.fecha_registro DESC
-    `);
-    res.json(rows);
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
+
+    res.json({ data: rows, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -889,19 +998,40 @@ app.delete('/api/areas/:id', async (req, res) => {
 app.get('/api/personas', async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT p.*, a.nombre as area_nombre 
-      FROM personas p 
-      LEFT JOIN areas a ON p.area_id = a.id
-      ORDER BY p.nombre
+      SELECT
+        p.id_personal as id,
+        p.id_personal,
+        p.codigo_personal,
+        p.nombres,
+        p.apellidos,
+        CONCAT(p.nombres, ' ', p.apellidos) as nombre,
+        p.id_area as area_id,
+        a.nombre as area_nombre,
+        p.id_sector as sector_id,
+        s.nombre as sector_nombre,
+        z.nombre as zona_nombre
+      FROM personal p
+      LEFT JOIN areas a ON p.id_area = a.id
+      LEFT JOIN sectores s ON p.id_sector = s.id_sector
+      LEFT JOIN zonas z ON s.id_zona = z.id_zona
+      ORDER BY p.nombres, p.apellidos
     `);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/personas', async (req, res) => {
-    const { nombre, area_id } = req.body;
+    const { nombre, area_id, sector_id } = req.body;
     try {
-        await db.query("INSERT INTO personas (nombre, area_id) VALUES (?, ?)", [nombre, area_id || null]);
+        const trimmed = (nombre || '').trim();
+        if (!trimmed) {
+            return res.status(400).json({ error: 'El nombre es obligatorio.' });
+        }
+        const parts = trimmed.split(/\s+/);
+        const nombres = parts.shift();
+        const apellidos = parts.join(' ') || '.';
+        const codigoPersonal = `P-${Date.now()}`;
+        await db.query("INSERT INTO personal (codigo_personal, nombres, apellidos, id_area, id_sector, estado, fecha_creacion) VALUES (?, ?, ?, ?, ?, 1, NOW())", [codigoPersonal, nombres, apellidos, area_id || null, sector_id || null]);
         res.status(201).json({ message: "Persona creada con éxito" });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -909,9 +1039,16 @@ app.post('/api/personas', async (req, res) => {
 });
 
 app.put('/api/personas/:id', async (req, res) => {
-    const { nombre, area_id } = req.body;
+    const { nombre, area_id, sector_id } = req.body;
     try {
-        await db.query("UPDATE personas SET nombre = ?, area_id = ? WHERE id = ?", [nombre, area_id || null, req.params.id]);
+        const trimmed = (nombre || '').trim();
+        if (!trimmed) {
+            return res.status(400).json({ error: 'El nombre es obligatorio.' });
+        }
+        const parts = trimmed.split(/\s+/);
+        const nombres = parts.shift();
+        const apellidos = parts.join(' ') || '.';
+        await db.query("UPDATE personal SET nombres = ?, apellidos = ?, id_area = ?, id_sector = ? WHERE id_personal = ?", [nombres, apellidos, area_id || null, sector_id || null, req.params.id]);
         res.json({ message: "Persona actualizada con éxito" });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -920,7 +1057,7 @@ app.put('/api/personas/:id', async (req, res) => {
 
 app.delete('/api/personas/:id', async (req, res) => {
     try {
-        await db.query("DELETE FROM personas WHERE id = ?", [req.params.id]);
+        await db.query("DELETE FROM personal WHERE id_personal = ?", [req.params.id]);
         res.json({ message: "Persona eliminada con éxito" });
     } catch (err) {
         if (err.code === 'ER_ROW_IS_REFERENCED_2') {
@@ -1086,6 +1223,100 @@ app.delete('/api/zonas/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// --- CRUD SECTORES ---
+app.get('/api/sectores', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT s.*, z.nombre as nombre_zona, d.nombre as nombre_distrito
+      FROM sectores s
+      JOIN zonas z ON s.id_zona = z.id_zona
+      LEFT JOIN distritos d ON z.id_distrito = d.id_distrito
+      WHERE s.estado = 1
+      ORDER BY d.nombre, z.nombre, s.nombre
+    `);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/sectores/:id', async (req, res) => {
+  try {
+    const [[sector]] = await db.query(`
+      SELECT s.*, z.nombre as nombre_zona, d.nombre as nombre_distrito
+      FROM sectores s
+      JOIN zonas z ON s.id_zona = z.id_zona
+      LEFT JOIN distritos d ON z.id_distrito = d.id_distrito
+      WHERE s.id_sector = ?
+    `, [req.params.id]);
+    if (!sector) return res.status(404).json({ error: 'Sector no encontrado' });
+
+    const [puntos] = await db.query(
+      "SELECT latitud, longitud, orden FROM sector_puntos WHERE id_sector = ? ORDER BY orden", [req.params.id]
+    );
+    res.json({ ...sector, puntos });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/sectores', async (req, res) => {
+  const { nombre, id_zona, descripcion, puntos } = req.body;
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [result] = await connection.query(
+      "INSERT INTO sectores (nombre, id_zona, descripcion) VALUES (?, ?, ?)",
+      [nombre, id_zona, descripcion || null]
+    );
+    const sectorId = result.insertId;
+
+    if (puntos && Array.isArray(puntos) && puntos.length > 0) {
+      for (let i = 0; i < puntos.length; i++) {
+        await connection.query(
+          "INSERT INTO sector_puntos (id_sector, latitud, longitud, orden) VALUES (?, ?, ?, ?)",
+          [sectorId, puntos[i].latitud, puntos[i].longitud, i]
+        );
+      }
+    }
+    await connection.commit();
+    res.status(201).json({ message: "Sector creado", id_sector: sectorId });
+  } catch (err) {
+    await connection.rollback();
+    res.status(500).json({ error: err.message });
+  } finally { connection.release(); }
+});
+
+app.put('/api/sectores/:id', async (req, res) => {
+  const { nombre, id_zona, descripcion, puntos } = req.body;
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query(
+      "UPDATE sectores SET nombre = ?, id_zona = ?, descripcion = ? WHERE id_sector = ?",
+      [nombre, id_zona, descripcion || null, req.params.id]
+    );
+
+    if (puntos && Array.isArray(puntos)) {
+      await connection.query("DELETE FROM sector_puntos WHERE id_sector = ?", [req.params.id]);
+      for (let i = 0; i < puntos.length; i++) {
+        await connection.query(
+          "INSERT INTO sector_puntos (id_sector, latitud, longitud, orden) VALUES (?, ?, ?, ?)",
+          [req.params.id, puntos[i].latitud, puntos[i].longitud, i]
+        );
+      }
+    }
+    await connection.commit();
+    res.json({ message: "Sector actualizado" });
+  } catch (err) {
+    await connection.rollback();
+    res.status(500).json({ error: err.message });
+  } finally { connection.release(); }
+});
+
+app.delete('/api/sectores/:id', async (req, res) => {
+  try {
+    await db.query("UPDATE sectores SET estado = 0 WHERE id_sector = ?", [req.params.id]);
+    res.json({ message: "Sector eliminado" });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Endpoint para probar la conexión a la base de datos (Ping)
 app.get('/api/test-db', async (req, res) => {
   try {
@@ -1101,18 +1332,99 @@ app.get('/api/test-db', async (req, res) => {
 app.get('/api/kpis', async (req, res) => {
   try {
     const [totalRows] = await db.query("SELECT COUNT(*) as total FROM incidencias");
-    // NOTA: La nueva tabla 'incidencias' no tiene campo 'id_estado', por lo que
-    // simplificamos los KPIs para mostrar solo el total por ahora.
-    // const [resueltasRows] = await db.query("SELECT COUNT(*) as total FROM incidencias WHERE id_estado = 3"); 
-    // const [pendientesRows] = await db.query("SELECT COUNT(*) as total FROM incidencias WHERE id_estado IN (1, 2)");
-
     res.json({
       total: totalRows[0].total,
-      resueltas: 0, // Placeholder
+      resueltas: 0,
       pendientes: totalRows[0].total,
       efectividad: 0
     });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// --- ESTADÍSTICAS COMPLETAS PARA DASHBOARD ---
+app.get('/api/estadisticas', async (req, res) => {
+  try {
+    const [[totales]] = await db.query(`
+      SELECT
+        COUNT(*) as total_incidencias,
+        COUNT(DISTINCT id_sereno) as serenos_activos,
+        COUNT(DISTINCT zona) as zonas_cubiertas,
+        COUNT(DISTINCT DATE(fecha_registro)) as dias_con_actividad
+      FROM incidencias
+    `);
+
+    const [porTipo] = await db.query(`
+      SELECT tipo_hecho as nombre, COUNT(*) as cantidad
+      FROM incidencias WHERE tipo_hecho IS NOT NULL AND tipo_hecho != ''
+      GROUP BY tipo_hecho ORDER BY cantidad DESC LIMIT 10
+    `);
+
+    const [porZona] = await db.query(`
+      SELECT zona as nombre, COUNT(*) as cantidad
+      FROM incidencias WHERE zona IS NOT NULL AND zona != ''
+      GROUP BY zona ORDER BY cantidad DESC LIMIT 10
+    `);
+
+    const [porModalidad] = await db.query(`
+      SELECT COALESCE(modalidad_intervencion, 'No especificada') as nombre, COUNT(*) as cantidad
+      FROM incidencias GROUP BY modalidad_intervencion ORDER BY cantidad DESC
+    `);
+
+    const [porServicio] = await db.query(`
+      SELECT COALESCE(servicio, 'N/A') as nombre, COUNT(*) as cantidad
+      FROM incidencias GROUP BY servicio ORDER BY cantidad DESC
+    `);
+
+    const [porDia] = await db.query(`
+      SELECT DATE(fecha_registro) as fecha, COUNT(*) as cantidad
+      FROM incidencias WHERE fecha_registro >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+      GROUP BY DATE(fecha_registro) ORDER BY fecha ASC
+    `);
+
+    const [porHora] = await db.query(`
+      SELECT HOUR(hora_hecho) as hora, COUNT(*) as cantidad
+      FROM incidencias WHERE hora_hecho IS NOT NULL
+      GROUP BY HOUR(hora_hecho) ORDER BY hora ASC
+    `);
+
+    const [topSerenos] = await db.query(`
+      SELECT CONCAT(p.nombres, ' ', p.apellidos) as nombre, COUNT(*) as cantidad
+      FROM incidencias i JOIN personal p ON i.id_sereno = p.id_personal
+      GROUP BY i.id_sereno ORDER BY cantidad DESC LIMIT 10
+    `);
+
+    const [[mesActual]] = await db.query(`
+      SELECT COUNT(*) as total FROM incidencias
+      WHERE MONTH(fecha_registro) = MONTH(NOW()) AND YEAR(fecha_registro) = YEAR(NOW())
+    `);
+    const [[mesAnterior]] = await db.query(`
+      SELECT COUNT(*) as total FROM incidencias
+      WHERE MONTH(fecha_registro) = MONTH(DATE_SUB(NOW(), INTERVAL 1 MONTH))
+        AND YEAR(fecha_registro) = YEAR(DATE_SUB(NOW(), INTERVAL 1 MONTH))
+    `);
+
+    const [ultimas] = await db.query(`
+      SELECT i.id_incidencia, i.numero_parte, i.tipo_hecho, i.zona, i.lugar_hecho,
+        i.fecha_registro, i.modalidad_intervencion,
+        CONCAT(p.nombres, ' ', p.apellidos) as nombre_sereno
+      FROM incidencias i LEFT JOIN personal p ON i.id_sereno = p.id_personal
+      ORDER BY i.fecha_registro DESC LIMIT 5
+    `);
+
+    const [porDiaSemana] = await db.query(`
+      SELECT DAYNAME(fecha_registro) as nombre, COUNT(*) as cantidad
+      FROM incidencias GROUP BY DAYNAME(fecha_registro), DAYOFWEEK(fecha_registro)
+      ORDER BY DAYOFWEEK(fecha_registro) ASC
+    `);
+
+    res.json({
+      totales, mesActual: mesActual.total, mesAnterior: mesAnterior.total,
+      porTipo, porZona, porModalidad, porServicio, porDia, porHora, porDiaSemana, topSerenos, ultimas
+    });
+  } catch (err) {
+    console.error("Error en estadísticas:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Endpoint para probar la notificación por socket
@@ -1130,6 +1442,170 @@ app.get('/api/test-notificacion', (req, res) => {
   } else {
     res.status(500).send('Socket.io no está inicializado en el servidor.');
   }
+});
+
+// =============================================
+// --- CRUD SUPERVISORES Y ASIGNACIONES ---
+// =============================================
+
+// Listar supervisores (personal con rol supervisor_sereno)
+app.get('/api/supervisores', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT
+        p.id_personal, p.codigo_personal, p.nombres, p.apellidos,
+        CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo,
+        COUNT(asig.id) as serenos_asignados
+      FROM personal p
+      INNER JOIN usuario u ON u.id_personal = p.id_personal
+      INNER JOIN usuario_rol ur ON ur.id_usuario = u.id_usuario
+      INNER JOIN rol r ON r.id_rol = ur.id_rol
+      LEFT JOIN asignacion_supervisores asig ON asig.supervisor_id = p.id_personal AND asig.estado = 'ACTIVO'
+      WHERE r.nombre = 'supervisor_sereno' AND p.estado = 1
+      GROUP BY p.id_personal
+      ORDER BY p.apellidos, p.nombres
+    `);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Listar serenos disponibles (no asignados a ningún supervisor activo)
+app.get('/api/supervisores/serenos-disponibles', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT
+        p.id_personal, p.codigo_personal, p.nombres, p.apellidos,
+        CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
+      FROM personal p
+      INNER JOIN usuario u ON u.id_personal = p.id_personal
+      INNER JOIN usuario_rol ur ON ur.id_usuario = u.id_usuario
+      INNER JOIN rol r ON r.id_rol = ur.id_rol
+      WHERE r.nombre = 'sereno' AND p.estado = 1
+        AND p.id_personal NOT IN (
+          SELECT sereno_id FROM asignacion_supervisores WHERE estado = 'ACTIVO'
+        )
+      GROUP BY p.id_personal
+      ORDER BY p.apellidos, p.nombres
+    `);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Obtener serenos asignados a un supervisor
+app.get('/api/supervisores/:id/serenos', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT
+        asig.id as id_asignacion,
+        asig.fecha_asignacion,
+        asig.observaciones,
+        p.id_personal, p.codigo_personal, p.nombres, p.apellidos,
+        CONCAT(p.nombres, ' ', p.apellidos) as nombre_completo
+      FROM asignacion_supervisores asig
+      INNER JOIN personal p ON p.id_personal = asig.sereno_id
+      WHERE asig.supervisor_id = ? AND asig.estado = 'ACTIVO'
+      ORDER BY asig.fecha_asignacion DESC
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Asignar sereno a supervisor
+app.post('/api/supervisores/asignar', async (req, res) => {
+  const { supervisor_id, sereno_id, observaciones } = req.body;
+  if (!supervisor_id || !sereno_id) {
+    return res.status(400).json({ error: 'supervisor_id y sereno_id son requeridos.' });
+  }
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Verificar que el sereno no esté ya asignado
+    const [existing] = await connection.query(
+      "SELECT id FROM asignacion_supervisores WHERE sereno_id = ? AND estado = 'ACTIVO'", [sereno_id]
+    );
+    if (existing.length > 0) {
+      await connection.rollback();
+      return res.status(409).json({ error: 'Este sereno ya está asignado a un supervisor.' });
+    }
+
+    // Crear asignación
+    const [result] = await connection.query(
+      "INSERT INTO asignacion_supervisores (supervisor_id, sereno_id, observaciones) VALUES (?, ?, ?)",
+      [supervisor_id, sereno_id, observaciones || null]
+    );
+
+    // Registrar en historial
+    const [[sup]] = await connection.query("SELECT CONCAT(nombres,' ',apellidos) as nombre FROM personal WHERE id_personal = ?", [supervisor_id]);
+    const [[ser]] = await connection.query("SELECT CONCAT(nombres,' ',apellidos) as nombre FROM personal WHERE id_personal = ?", [sereno_id]);
+
+    await connection.query(
+      "INSERT INTO historial_supervisores (asignacion_id, supervisor_id, sereno_id, accion, detalle) VALUES (?, ?, ?, 'ASIGNADO', ?)",
+      [result.insertId, supervisor_id, sereno_id, `Sereno '${ser.nombre}' asignado al supervisor '${sup.nombre}'.`]
+    );
+
+    await connection.commit();
+    res.status(201).json({ message: 'Sereno asignado correctamente.', id: result.insertId });
+  } catch (err) {
+    await connection.rollback();
+    res.status(500).json({ error: err.message });
+  } finally {
+    connection.release();
+  }
+});
+
+// Desasignar sereno de supervisor
+app.put('/api/supervisores/desasignar/:id_asignacion', async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [[asig]] = await connection.query("SELECT * FROM asignacion_supervisores WHERE id = ? AND estado = 'ACTIVO'", [req.params.id_asignacion]);
+    if (!asig) {
+      await connection.rollback();
+      return res.status(404).json({ error: 'Asignación no encontrada o ya inactiva.' });
+    }
+
+    await connection.query(
+      "UPDATE asignacion_supervisores SET estado = 'INACTIVO', fecha_desasignacion = NOW() WHERE id = ?",
+      [req.params.id_asignacion]
+    );
+
+    const [[sup]] = await connection.query("SELECT CONCAT(nombres,' ',apellidos) as nombre FROM personal WHERE id_personal = ?", [asig.supervisor_id]);
+    const [[ser]] = await connection.query("SELECT CONCAT(nombres,' ',apellidos) as nombre FROM personal WHERE id_personal = ?", [asig.sereno_id]);
+
+    await connection.query(
+      "INSERT INTO historial_supervisores (asignacion_id, supervisor_id, sereno_id, accion, detalle) VALUES (?, ?, ?, 'DESASIGNADO', ?)",
+      [asig.id, asig.supervisor_id, asig.sereno_id, `Sereno '${ser.nombre}' desasignado del supervisor '${sup.nombre}'.`]
+    );
+
+    await connection.commit();
+    res.json({ message: 'Sereno desasignado correctamente.' });
+  } catch (err) {
+    await connection.rollback();
+    res.status(500).json({ error: err.message });
+  } finally {
+    connection.release();
+  }
+});
+
+// Historial de asignaciones de supervisores
+app.get('/api/supervisores/historial', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT
+        h.*,
+        CONCAT(sup.nombres, ' ', sup.apellidos) as nombre_supervisor,
+        CONCAT(ser.nombres, ' ', ser.apellidos) as nombre_sereno
+      FROM historial_supervisores h
+      JOIN personal sup ON h.supervisor_id = sup.id_personal
+      JOIN personal ser ON h.sereno_id = ser.id_personal
+      ORDER BY h.fecha DESC
+      LIMIT 200
+    `);
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 httpServer.listen(port, () => {

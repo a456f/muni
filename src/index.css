@@ -1,32 +1,47 @@
 :root {
-  /* Paleta de Colores Institucional (Modo Claro) */
-  --primary-dark: #0f172a;   /* Slate 900 - Barra lateral */
-  --primary-light: #1e293b;  /* Slate 800 */
-  --brand-blue: #2563eb;     /* Royal Blue - Acciones */
-  --brand-blue-hover: #1d4ed8;
-  
-  --bg-app: #f1f5f9;         /* Fondo general */
-  --bg-card: #ffffff;        /* Fondo de tarjetas/modales */
-  --bg-input: #f8fafc;       /* Fondo de inputs */
-  --bg-hover: #f1f5f9;       /* Fondo al pasar el mouse */
-  
-  --text-main: #334155;      /* Texto principal */
-  --text-muted: #64748b;     /* Texto secundario */
-  --text-heading: #0f172a;   /* Títulos */
-  
-  --border-light: #e2e8f0;   /* Bordes */
+  /* Paleta Municipal Verde - Miraflores */
+  --primary: #2E7D32;
+  --primary-light: #4CAF50;
+  --primary-dark: #1B5E20;
+  --primary-50: #E8F5E9;
+  --primary-100: #C8E6C9;
+  --secondary: #1565C0;
+  --secondary-light: #42A5F5;
+  --secondary-50: #E3F2FD;
 
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  
-  /* Nuevas variables para diseño innovador */
-  --radius-xl: 24px;
+  --brand-blue: #2E7D32;
+  --brand-blue-hover: #1B5E20;
+
+  --accent-orange: #F57C00;
+  --accent-orange-bg: #FFF3E0;
+  --accent-red: #D32F2F;
+  --accent-red-bg: #FFEBEE;
+
+  --bg-app: #F5F7FA;
+  --bg-card: #FFFFFF;
+  --bg-input: #F8FAFC;
+  --bg-hover: #E8F5E9;
+
+  --text-main: #1A1D26;
+  --text-muted: #6B7280;
+  --text-heading: #1A1D26;
+  --text-secondary: #6B7280;
+
+  --border-light: #E8ECF0;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.04), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.06), 0 4px 10px rgba(0,0,0,0.04);
+
+  --radius-xl: 20px;
   --radius-lg: 16px;
   --radius-md: 12px;
-  --shadow-soft: 0 20px 40px -10px rgba(0, 0, 0, 0.08);
-  --glass-bg: rgba(255, 255, 255, 0.85);
-  --glass-border: 1px solid rgba(255, 255, 255, 0.6);
+  --radius-sm: 8px;
+  --shadow-soft: 0 20px 40px -10px rgba(0, 0, 0, 0.06);
+  --glass-bg: rgba(255, 255, 255, 0.92);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.7);
+
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   line-height: 1.5;
@@ -39,28 +54,33 @@
 }
 
 [data-theme="dark"] {
-  /* Paleta de Colores (Modo Oscuro) */
-  --primary-dark: #020617;   /* Slate 950 */
-  --primary-light: #0f172a;  /* Slate 900 */
-  --brand-blue: #3b82f6;     /* Blue 500 - Más brillante para contraste */
-  --brand-blue-hover: #2563eb;
-  
-  --bg-app: #0f172a;         /* Fondo oscuro */
-  --bg-card: #1e293b;        /* Tarjetas oscuras */
-  --bg-input: #0f172a;       /* Inputs oscuros */
-  --bg-hover: #334155;       /* Hover oscuro */
-  
-  --text-main: #f1f5f9;      /* Texto claro */
-  --text-muted: #94a3b8;     /* Texto secundario */
-  --text-heading: #ffffff;   /* Títulos blancos */
-  
-  --border-light: #334155;   /* Bordes oscuros */
-  
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
-  
+  --primary-50: #1a2e1a;
+  --primary-100: #1a3a1a;
+  --secondary-50: #0d1f33;
+  --accent-orange-bg: #2a1f0d;
+  --accent-red-bg: #2a0d0d;
+
+  --brand-blue: #4CAF50;
+  --brand-blue-hover: #2E7D32;
+
+  --bg-app: #0F1117;
+  --bg-card: #1A1D28;
+  --bg-input: #141720;
+  --bg-hover: #22252F;
+
+  --text-main: #E8ECF0;
+  --text-muted: #6B7280;
+  --text-heading: #E8ECF0;
+  --text-secondary: #9CA3AF;
+
+  --border-light: #2A2D3A;
+
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.2);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.3);
+
   --shadow-soft: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
-  --glass-bg: rgba(30, 41, 59, 0.85);
+  --glass-bg: rgba(26, 29, 40, 0.9);
   --glass-border: 1px solid rgba(255, 255, 255, 0.05);
 }
 

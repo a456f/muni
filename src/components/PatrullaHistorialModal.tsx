@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 interface HistorialEntry {
   id_historial: number;
   detalles: string;
-  tipo_operacion: 'ASIGNACION' | 'ELIMINACION' | 'TRANSFERENCIA';
+  tipo_operacion: 'ASIGNACION' | 'ELIMINACION' | 'TRANSFERENCIA' | 'DEVOLUCION';
   fecha_operacion: string;
 }
 
@@ -22,6 +22,8 @@ const getOperationBadge = (operation: string) => {
       return <span className="badge" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#b91c1c' }}>Eliminación</span>;
     case 'TRANSFERENCIA':
       return <span className="badge" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#b45309' }}>Transferencia</span>;
+    case 'DEVOLUCION':
+      return <span className="badge" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#1d4ed8' }}>Devolución</span>;
     default:
       return <span className="badge">{operation}</span>;
   }

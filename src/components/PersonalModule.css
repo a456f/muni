@@ -1,0 +1,245 @@
+.personal-modal {
+  width: min(1240px, 97vw);
+  max-width: min(1240px, 97vw);
+  max-height: min(88vh, 900px);
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+  box-shadow: 0 32px 70px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+}
+
+.personal-modal-header {
+  background: var(--bg-input);
+  flex-shrink: 0;
+}
+
+.personal-modal-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.personal-modal-title h3 {
+  margin-bottom: 0.15rem;
+  font-size: 1.05rem;
+}
+
+.personal-modal-title p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.personal-modal-icon,
+.personal-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+
+.personal-modal-icon {
+  width: 2.45rem;
+  height: 2.45rem;
+  background: linear-gradient(135deg, #2E7D32, #1565C0);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(46, 125, 50, 0.18);
+}
+
+.personal-form-layout {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr) minmax(0, 1fr);
+  align-items: start;
+}
+
+.personal-modal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: 1rem;
+  padding-bottom: 0.85rem;
+}
+
+.personal-section {
+  padding: 0.85rem;
+  border: 1px solid var(--border-light);
+  border-radius: 18px;
+  background: var(--bg-input);
+}
+
+.personal-section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 0.7rem;
+}
+
+.personal-section-header h4 {
+  margin: 0 0 0.2rem;
+  color: var(--text-heading);
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+}
+
+.personal-section-header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.personal-section-icon {
+  width: 1.9rem;
+  height: 1.9rem;
+  background: var(--primary-50);
+  color: var(--primary, #2E7D32);
+  border: 1px solid var(--border-light);
+}
+
+.personal-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+}
+
+.personal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.personal-field span {
+  font-size: 0.73rem;
+  font-weight: 800;
+  color: var(--text-heading);
+  letter-spacing: 0.01em;
+}
+
+.personal-field input {
+  height: 2.45rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  padding: 0.58rem 0.78rem;
+  font-size: 0.89rem;
+  color: var(--text-main);
+}
+
+.personal-field input::placeholder {
+  color: var(--text-muted);
+}
+
+.personal-field input:focus {
+  border-color: #2E7D32;
+  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
+}
+
+.personal-field-full {
+  grid-column: 1 / -1;
+}
+
+.personal-role-group + .personal-role-group {
+  margin-top: 0.55rem;
+}
+
+.personal-role-title {
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.personal-role-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.45rem;
+}
+
+.personal-role-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.45rem;
+  padding: 0.52rem 0.72rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.personal-role-chip input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--primary, #2E7D32);
+  transform: translateY(0.5px);
+}
+
+.personal-role-chip.selected {
+  border-color: rgba(46, 125, 50, 0.3);
+  background: var(--primary-50);
+}
+
+.personal-role-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(46, 125, 50, 0.28);
+}
+
+.personal-modal .modal-footer {
+  background: var(--bg-input);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  border-top: 1px solid var(--border-light);
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+
+.personal-modal .modal-footer .login-button {
+  min-width: 220px;
+  min-height: 2.35rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.personal-modal .modal-footer .cancel-btn {
+  min-height: 2.35rem;
+  font-size: 0.84rem;
+}
+
+@media (max-width: 900px) {
+  .personal-modal {
+    width: min(760px, 96vw);
+    max-height: 94vh;
+  }
+  .personal-form-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+  .personal-section:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .personal-modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 94vh;
+    border-radius: 18px;
+  }
+  .personal-form-layout { grid-template-columns: 1fr; }
+  .personal-grid { grid-template-columns: 1fr; }
+  .personal-field-full { grid-column: auto; }
+  .personal-role-list { grid-template-columns: 1fr; }
+  .personal-role-chip { width: 100%; border-radius: 14px; }
+  .modal-footer { flex-direction: column-reverse; }
+  .modal-footer .cancel-btn, .modal-footer .login-button { width: 100%; min-width: 0; }
+}

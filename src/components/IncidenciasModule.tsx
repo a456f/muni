@@ -6,6 +6,7 @@ import type { User } from '../services/authService';
 import { useNotification } from './useNotification';
 import { createPortal } from 'react-dom';
 import { API_URL } from '../config/api';
+// jsPDF se carga dinámicamente al exportar PDF
 
 // Interfaz actualizada según la nueva tabla 'incidencias'
 interface Incidencia {
@@ -74,47 +75,367 @@ const IncidenciasModule = ({ user }: Props) => {
   const [evidenceModalId, setEvidenceModalId] = useState<number | null>(null);
   const [signatureModalUrl, setSignatureModalUrl] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, page: 1, totalPages: 1 });
+  const [loading, setLoading] = useState(false);
   const { notification, showNotification, hideNotification } = useNotification();
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
 
-  const fetchData = async () => {
+  const exportarPartePDF = async (inc: Incidencia) => {
+    const { default: jsPDF } = await import('jspdf');
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageW = 210;
+    const ml = 12;
+    const mr = 198;
+    const contentW = mr - ml;
+    const colRight = 115;
+
+    // Fondo verde claro tipo formulario original
+    doc.setFillColor(218, 225, 195);
+    doc.rect(0, 0, pageW, 297, 'F');
+
+    // Borde exterior
+    doc.setDrawColor(80, 90, 60);
+    doc.setLineWidth(0.8);
+    doc.rect(ml, 8, contentW, 280, 'S');
+    doc.setLineWidth(0.3);
+    doc.rect(ml + 2, 10, contentW - 4, 276, 'S');
+
+    const L = ml + 5;      // inner left
+    const R = mr - 5;      // inner right
+    const W = R - L;        // inner width
+
+    // ============ HEADER ============
+    // Logo Miraflores (circulo)
+    doc.setDrawColor(60, 70, 40);
+    doc.setLineWidth(0.5);
+    doc.circle(L + 12, 22, 8, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5);
+    doc.setTextColor(60, 70, 40);
+    doc.text('MIRAFLORES', L + 12, 20, { align: 'center' });
+    doc.setFontSize(3.5);
+    doc.setFont('helvetica', 'italic');
+    doc.text('se vive mejor', L + 12, 23, { align: 'center' });
+
+    // Titulo
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(30, 35, 20);
+    doc.text('PATRULLAJE MUNICIPAL', L + 30, 17);
+
+    doc.setFontSize(8);
+    doc.text('SEGURIDAD CIUDADANA', R, 14, { align: 'right' });
+
+    // PARTE + Numero
+    doc.setFontSize(11);
+    doc.text('PARTE', R - 55, 25);
+    doc.setFontSize(15);
+    doc.setTextColor(0);
+    doc.text(inc.numero_parte || 'S/N', R - 38, 25);
+
+    // Linea separadora
+    doc.setDrawColor(80, 90, 60);
+    doc.setLineWidth(0.4);
+    doc.line(L, 30, R, 30);
+
+    // ============ HELPERS ============
+    let y = 36;
+    const lh = 6.2;
+
+    const field = (label: string, val: string, x: number, yy: number, endX: number) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(30, 35, 20);
+      doc.text(label, x, yy);
+      const labelEnd = x + doc.getTextWidth(label) + 1;
+      // Valor
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(0);
+      if (val) doc.text(`: ${val}`, labelEnd, yy);
+      else doc.text(':', labelEnd, yy);
+      // Underline
+      doc.setDrawColor(80, 90, 60);
+      doc.setLineWidth(0.15);
+      doc.line(labelEnd + 2, yy + 1, endX, yy + 1);
+    };
+
+    const check = (label: string, checked: boolean, x: number, yy: number): number => {
+      doc.setDrawColor(50);
+      doc.setLineWidth(0.3);
+      const boxSize = 3.5;
+      doc.rect(x, yy - 3.2, boxSize, boxSize, 'S');
+      if (checked) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(0);
+        doc.text('X', x + 0.6, yy - 0.5);
+      }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(30, 35, 20);
+      doc.text(label, x + boxSize + 1.5, yy);
+      return x + boxSize + 2 + doc.getTextWidth(label) + 3;
+    };
+
+    // ============ COLUMNA IZQ: Zona, Dia, Fecha, Horas ============
+    // ============ COLUMNA DER: Servicio, Tipo Intervencion ============
+
+    // Fila 1: ZONA | SERVICIO (A)(B)(C)
+    field('ZONA', inc.zona || '', L, y, L + 60);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(30, 35, 20);
+    doc.text('SERVICIO', colRight, y);
+    let cx = colRight + 22;
+    ['A', 'B', 'C'].forEach(s => { cx = check(s, inc.servicio === s, cx, y); });
+    y += lh;
+
+    // Fila 2: DIA | TIPO INTERVENCION (titulo)
+    field('DIA', inc.dia || '', L, y, L + 60);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(30, 35, 20);
+    doc.text('TIPO INTERVENCIÓN', colRight, y);
+    y += lh;
+
+    // Fila 3: FECHA | LLAMADA DE BASE ( )
+    field('FECHA', inc.fecha ? new Date(inc.fecha).toLocaleDateString('es-PE') : '', L, y, L + 60);
+    check('LLAMADA DE BASE', inc.modalidad_intervencion === 'Llamada de Base', colRight, y);
+    y += lh;
+
+    // Fila 4: HORA DE HECHO | INTERVENC. DIRECTA ( )
+    field('HORA DE HECHO', inc.hora_hecho || '', L, y, L + 60);
+    check('INTERVENC. DIRECTA', inc.modalidad_intervencion === 'Directa', colRight, y);
+    y += lh;
+
+    // Fila 5: HORA DE LA DENUNCIA | VIDEO CAMARA ( )
+    field('HORA DE LA DENUNCIA', inc.hora_denuncia || '', L, y, L + 60);
+    check('VIDEO CAMARA', inc.modalidad_intervencion === 'Cámara', colRight, y);
+    y += lh;
+
+    // Fila 6: HORA DE LA INTERVENC.
+    field('HORA DE LA INTERVENC.', inc.hora_intervencion || '', L, y, L + 60);
+    y += lh + 1;
+
+    // Separador
+    doc.setDrawColor(80, 90, 60);
+    doc.setLineWidth(0.3);
+    doc.line(L, y, R, y);
+    y += 5;
+
+    // ============ DATOS DE INTERVENCIÓN ============
+    field('UNIDAD QUE INTERVIENE', inc.unidad_serenazgo || '', L, y, L + 60);
+    field('NOMBRES DEL AGRAVIADO', inc.nombres_agraviado || '', colRight, y, R);
+    y += lh;
+
+    field('LUGAR DEL HECHO', inc.lugar_hecho || '', L, y, R);
+    y += lh;
+
+    field('TIPO DE HECHO', inc.tipo_hecho || '', L, y, L + 80);
+    y += lh;
+
+    field('TIPO DE ARMA USADA', inc.arma_usada || '', L, y, L + 60);
+    field('SEÑAS DEL AUTOR', inc.senas_autor || '', colRight, y, R);
+    y += lh;
+
+    field('MONTO AFECTADO', inc.monto_afectado ? `S/. ${Number(inc.monto_afectado).toFixed(2)}` : '', L, y, L + 60);
+    y += lh;
+
+    // SEGUIMIENTO
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(30, 35, 20);
+    doc.text('SEGUIMIENTO  1 - 2 - 3 - 4 - 5 - 6', L, y);
+    y += lh + 1;
+
+    // Separador
+    doc.setDrawColor(80, 90, 60);
+    doc.setLineWidth(0.3);
+    doc.line(L, y, R, y);
+    y += 6;
+
+    // ============ RELATO ============
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(30, 35, 20);
+
+    const supName = inc.supervisor_nombre?.toUpperCase() || '________';
+    doc.text('Sr.', L, y);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text(supName, L + 7, y);
+    const afterSup = L + 7 + doc.getTextWidth(supName) + 2;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(', Doy cuenta a Ud. que en la hora y lugar', afterSup, y);
+    y += 5;
+    doc.text('indicado se produjo:', L, y);
+    doc.setDrawColor(80, 90, 60);
+    doc.setLineWidth(0.15);
+    doc.line(L + doc.getTextWidth('indicado se produjo:') + 2, y + 0.5, R, y + 0.5);
+    y += 6;
+
+    // Texto del relato sobre líneas
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const relato = inc.descripcion_relato || '';
+    const relatoLines = doc.splitTextToSize(relato, W - 4);
+    const numLines = Math.max(relatoLines.length + 1, 7);
+
+    // Líneas horizontales
+    doc.setDrawColor(100, 110, 80);
+    doc.setLineWidth(0.15);
+    for (let i = 0; i < numLines; i++) {
+      doc.line(L, y + (i * 6) + 4, R, y + (i * 6) + 4);
+    }
+    // Texto
+    doc.setTextColor(10, 10, 40);
+    relatoLines.forEach((line: string, idx: number) => {
+      doc.text(line, L + 1, y + (idx * 6) + 3);
+    });
+    y += numLines * 6 + 6;
+
+    // ============ SEPARADOR + FLECHA ============
+    doc.setDrawColor(80, 90, 60);
+    doc.setLineWidth(0.4);
+    doc.line(L, y, R, y);
+    // Flecha
+    doc.line(R - 6, y, R, y);
+    doc.line(R - 2, y - 1.5, R, y);
+    doc.line(R - 2, y + 1.5, R, y);
+    y += 4;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6);
+    doc.setTextColor(60, 60, 40);
+    doc.text('(DE PREFERENCIA SE DEBERA UTILIZAR LETRA DE IMPRENTA)', pageW / 2, y, { align: 'center' });
+    y += 5;
+
+    // ============ FIRMAS ============
+    const leftC = L + W / 4;        // centro firma izquierda
+    const rightC = L + (W * 3) / 4; // centro firma derecha
+    const firmaLineW = 35;          // ancho linea firma
+
+    // Cargar firma digital ENCIMA de la linea
+    if (inc.firma_ruta) {
+      try {
+        const firmaUrl = `${API_URL.replace(/\/api\/?$/, '')}/${inc.firma_ruta}`;
+        const response = await fetch(firmaUrl);
+        const blob = await response.blob();
+        const imgData: string = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        // Firma encima de la linea izquierda
+        doc.addImage(imgData, 'PNG', leftC - 17, y, 34, 17);
+      } catch {
+        // sin firma
+      }
+    }
+    y += 19;
+
+    // Líneas de firma
+    doc.setDrawColor(30, 35, 20);
+    doc.setLineWidth(0.4);
+    doc.line(leftC - firmaLineW / 2, y, leftC + firmaLineW / 2, y);
+    doc.line(rightC - firmaLineW / 2, y, rightC + firmaLineW / 2, y);
+    y += 3;
+
+    // FIRMA labels
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(30, 35, 20);
+    doc.text('FIRMA', leftC, y, { align: 'center' });
+    doc.text('FIRMA', rightC, y, { align: 'center' });
+    y += 4;
+
+    // NOMBRE
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.text('NOMBRE', leftC - firmaLineW / 2, y);
+    doc.setFont('helvetica', 'bold');
+    const serenoName = inc.nombre_sereno?.toUpperCase() || '';
+    doc.text(serenoName, leftC - firmaLineW / 2 + 16, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text('NOMBRE', rightC - firmaLineW / 2, y);
+    doc.line(leftC - firmaLineW / 2 + 16, y + 0.5, leftC + firmaLineW / 2, y + 0.5);
+    doc.line(rightC - firmaLineW / 2 + 16, y + 0.5, rightC + firmaLineW / 2, y + 0.5);
+    y += 4;
+
+    // CODIGO
+    doc.text('CODIGO', leftC - firmaLineW / 2, y);
+    doc.text('CODIGO', rightC - firmaLineW / 2, y);
+    doc.line(leftC - firmaLineW / 2 + 14, y + 0.5, leftC + firmaLineW / 2, y + 0.5);
+    doc.line(rightC - firmaLineW / 2 + 14, y + 0.5, rightC + firmaLineW / 2, y + 0.5);
+    y += 5;
+
+    // Labels institucionales
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.text('SEGURIDAD CIUDADANA', leftC, y, { align: 'center' });
+    doc.text('POLICIA NACIONAL', rightC, y, { align: 'center' });
+    y += 5;
+    doc.setFontSize(7.5);
+    doc.text('SERENO', rightC, y, { align: 'center' });
+
+    // Footer
+    doc.setFontSize(5);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(100, 100, 80);
+    doc.text(`Documento generado digitalmente - ${new Date().toLocaleString('es-PE')}`, pageW / 2, 289, { align: 'center' });
+
+    // Vista previa en nueva pestaña en vez de descargar
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+    window.open(url, '_blank');
+  };
+
+  const fetchData = async (page = currentPage, search = searchTerm) => {
+    setLoading(true);
     try {
       const [resInc, resTip, resZon, resSer] = await Promise.all([
-        fetch(`${API_URL}/incidencias`),
+        fetch(`${API_URL}/incidencias?page=${page}&limit=20&search=${encodeURIComponent(search)}`),
         fetch(`${API_URL}/tipos-incidencia`),
         fetch(`${API_URL}/zonas`),
         fetch(`${API_URL}/serenos`)
       ]);
-      
-      if(resInc.ok) setIncidencias(await resInc.json());
+
+      if (resInc.ok) {
+        const json = await resInc.json();
+        setIncidencias(json.data || json);
+        if (json.pagination) setPagination(json.pagination);
+      }
       if(resTip.ok) setTiposCat(await resTip.json());
       if(resZon.ok) setZonasCat(await resZon.json());
       if(resSer.ok) setSerenos(await resSer.json());
     } catch (error) { console.error(error); }
+    setLoading(false);
   };
 
-  useEffect(() => { 
+  useEffect(() => {
     fetchData();
 
-    // Comprobar si hay una incidencia para resaltar desde la notificación
     const idToHighlight = sessionStorage.getItem('highlightIncidencia');
     if (idToHighlight) {
       setHighlightedId(parseInt(idToHighlight, 10));
       sessionStorage.removeItem('highlightIncidencia');
-
-      // Quitar el resaltado después de unos segundos
-      setTimeout(() => {
-        setHighlightedId(null);
-      }, 3000);
+      setTimeout(() => setHighlightedId(null), 3000);
     }
   }, []);
 
-  // Filtrado
-  const filtered = incidencias.filter(i => 
-    (i.descripcion_relato && i.descripcion_relato.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (i.tipo_hecho && i.tipo_hecho.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (i.numero_parte && i.numero_parte.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Refetch cuando cambia página
+  useEffect(() => { fetchData(currentPage, searchTerm); }, [currentPage]);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => { setCurrentPage(1); fetchData(1, searchTerm); }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const filtered = incidencias;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -232,6 +553,9 @@ const IncidenciasModule = ({ user }: Props) => {
                 <td>{i.nombre_sereno || 'N/A'}</td>
                 <td>{i.fecha_registro ? new Date(i.fecha_registro).toLocaleDateString() : '-'}</td>
                 <td>
+                  <button className="action-btn" onClick={() => exportarPartePDF(i)} title="Exportar PDF">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                  </button>
                   <button className="action-btn" onClick={() => setEvidenceModalId(i.id_incidencia)} title="Ver Evidencias">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                   </button>
@@ -247,6 +571,16 @@ const IncidenciasModule = ({ user }: Props) => {
           </tbody>
         </table>
       </div>
+
+      {loading && <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>Cargando...</div>}
+
+      {pagination.totalPages > 1 && (
+        <div className="table-pagination">
+          <button className="pagination-btn" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage <= 1}>Anterior</button>
+          <span className="pagination-info">Página {pagination.page} de {pagination.totalPages} ({pagination.total} registros)</span>
+          <button className="pagination-btn" onClick={() => setCurrentPage(p => Math.min(pagination.totalPages, p + 1))} disabled={currentPage >= pagination.totalPages}>Siguiente</button>
+        </div>
+      )}
 
       {isModalOpen && createPortal(
         <div className="modal-overlay" onClick={handleOverlayClick}>
@@ -354,7 +688,7 @@ const IncidenciasModule = ({ user }: Props) => {
               <h3>Firma del Involucrado</h3>
               <button className="modal-close" onClick={() => setSignatureModalUrl(null)}>×</button>
             </div>
-            <div className="modal-body" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', background: '#fff' }}>
+            <div className="modal-body" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', background: 'var(--bg-card)' }}>
               <img src={signatureModalUrl} alt="Firma" style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} />
             </div>
             <div className="modal-footer">

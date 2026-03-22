@@ -27,6 +27,18 @@ interface Equipo {
   area_asignada: string | null;
 }
 
+interface Revision {
+  id: number;
+  equipo_id: number;
+  ubicacion: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  comentario: string | null;
+  foto_ruta: string | null;
+  fecha_revision: string;
+  nombre_revisor: string;
+}
+
 interface Pagination {
     totalItems: number;
     totalPages: number;
@@ -59,6 +71,9 @@ const EquiposModule = () => {
     const [currentPage, setCurrentPage] = useState<number>(1);
     const [pagination, setPagination] = useState<Pagination>({totalItems: 0, totalPages: 1, currentPage: 1, limit: 15});
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [revisiones, setRevisiones] = useState<Revision[]>([]);
+    const [revEquipo, setRevEquipo] = useState<Equipo | null>(null);
+    const [fotoModal, setFotoModal] = useState<string | null>(null);
     const { notification, showNotification, hideNotification } = useNotification();
     const [error, setError] = useState<string | null>(null);
 
@@ -93,6 +108,15 @@ const EquiposModule = () => {
         fetchData();
     }, [currentPage, searchTerm]);
 
+
+    const openRevisiones = async (equipo: Equipo) => {
+        setRevEquipo(equipo);
+        try {
+            const res = await fetch(`${API_URL}/almacen/revisiones/${equipo.id}`);
+            if (res.ok) setRevisiones(await res.json());
+            else setRevisiones([]);
+        } catch { setRevisiones([]); }
+    };
 
     const resetForm = () => {
         setForm(initialFormState);
@@ -323,6 +347,9 @@ const EquiposModule = () => {
                                         : (item.estado === 'ALMACEN' ? 'Libre en Almacén' : item.estado)}
                                 </td>
                                 <td>
+                                    <button className="action-btn" onClick={() => openRevisiones(item)} title="Ver Revisiones">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H2v7l6.29 6.29a1 1 0 0 0 1.42 0l5.58-5.58a1 1 0 0 0 0-1.42Z"></path><circle cx="6" cy="9" r="1" fill="currentColor"></circle></svg>
+                                    </button>
                                     <button className="action-btn edit" onClick={() => openModal(item)} title="Editar"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
                                     <button className="action-btn delete" onClick={() => handleDelete(item.id)} title="Eliminar"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
                                 </td>
@@ -340,6 +367,113 @@ const EquiposModule = () => {
                 </div>
              </div>
 
+            {/* Modal Revisiones del Equipo */}
+            {revEquipo && createPortal(
+                <div className="modal-overlay" onClick={() => { setRevEquipo(null); setRevisiones([]); }}>
+                    <div className="modal-content" style={{ maxWidth: '850px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>Revisiones: {revEquipo.descripcion} ({revEquipo.numero_serie})</h3>
+                            <button className="modal-close" onClick={() => { setRevEquipo(null); setRevisiones([]); }}>×</button>
+                        </div>
+                        <div className="modal-body">
+                            {revisiones.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.3, marginBottom: 8 }}><path d="M9 5H2v7l6.29 6.29a1 1 0 0 0 1.42 0l5.58-5.58a1 1 0 0 0 0-1.42Z"></path><circle cx="6" cy="9" r="1"></circle></svg>
+                                    <p>Este equipo no tiene revisiones registradas.</p>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {revisiones.map(rev => (
+                                        <div key={rev.id} style={{
+                                            display: 'flex', gap: '14px', padding: '14px',
+                                            background: 'var(--bg-input, #f8fafc)', borderRadius: '10px',
+                                            border: '1px solid var(--border-color, #e2e8f0)'
+                                        }}>
+                                            {/* Foto thumbnail */}
+                                            {rev.foto_ruta ? (
+                                                <div
+                                                    onClick={() => setFotoModal(`${API_URL.replace(/\/api\/?$/, '')}/${rev.foto_ruta}`)}
+                                                    style={{
+                                                        width: 90, height: 90, borderRadius: '8px', overflow: 'hidden',
+                                                        cursor: 'pointer', flexShrink: 0, border: '1px solid var(--border-color, #e2e8f0)'
+                                                    }}
+                                                >
+                                                    <img
+                                                        src={`${API_URL.replace(/\/api\/?$/, '')}/${rev.foto_ruta}`}
+                                                        alt="Revisión"
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div style={{
+                                                    width: 90, height: 90, borderRadius: '8px', flexShrink: 0,
+                                                    background: 'var(--bg-hover, #e2e8f0)', display: 'flex',
+                                                    alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted, #94a3b8)'
+                                                }}>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                                </div>
+                                            )}
+
+                                            {/* Info */}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px', flexWrap: 'wrap', gap: 4 }}>
+                                                    <strong style={{ fontSize: '0.9rem' }}>{rev.nombre_revisor}</strong>
+                                                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted, #94a3b8)', whiteSpace: 'nowrap' }}>
+                                                        {new Date(rev.fecha_revision).toLocaleString()}
+                                                    </span>
+                                                </div>
+
+                                                {rev.comentario && (
+                                                    <p style={{ margin: '0 0 6px 0', fontSize: '0.88rem', lineHeight: 1.4 }}>{rev.comentario}</p>
+                                                )}
+
+                                                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-muted, #64748b)' }}>
+                                                    {rev.ubicacion && (
+                                                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                                            {rev.ubicacion}
+                                                        </span>
+                                                    )}
+                                                    {rev.latitud && rev.longitud && (
+                                                        <a
+                                                            href={`https://www.google.com/maps?q=${rev.latitud},${rev.longitud}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            style={{ color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon></svg>
+                                                            Ver en mapa
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="modal-footer">
+                            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{revisiones.length} revisión{revisiones.length !== 1 ? 'es' : ''}</span>
+                            <button className="login-button" onClick={() => { setRevEquipo(null); setRevisiones([]); }}>Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            , document.body)}
+
+            {/* Modal Foto ampliada */}
+            {fotoModal && createPortal(
+                <div className="modal-overlay" onClick={() => setFotoModal(null)} style={{ zIndex: 10001 }}>
+                    <div style={{ maxWidth: '90vw', maxHeight: '90vh', position: 'relative' }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setFotoModal(null)} style={{
+                            position: 'absolute', top: -12, right: -12, width: 30, height: 30,
+                            borderRadius: '50%', background: '#ef4444', color: '#fff', border: 'none',
+                            cursor: 'pointer', fontWeight: 700, fontSize: '1rem', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', zIndex: 1
+                        }}>×</button>
+                        <img src={fotoModal} alt="Foto revisión" style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: '10px', objectFit: 'contain' }} />
+                    </div>
+                </div>
+            , document.body)}
         </div>
     );
 };

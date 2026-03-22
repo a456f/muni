@@ -3,8 +3,11 @@ import { API_URL } from '../config/api';
 
 export interface User {
   id: number;
+  id_personal?: number;
+  username?: string;
   email: string;
   role: string;
+  roles?: string[];
   nombre: string | null;
 }
 
@@ -16,15 +19,14 @@ interface LoginResponse {
   user?: User;
 }
 
-export const loginUser = async (email: string, password: string): Promise<LoginResponse> => {
+export const loginUser = async (username: string, password: string): Promise<LoginResponse> => {
   try {
-    // Conectando al backend Node.js en el puerto 3001
     const response = await fetch(`${API_URL}/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ username, password }),
     });
 
     const data = await response.json();
