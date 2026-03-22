@@ -95,6 +95,20 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       });
     });
 
+    socket.on('nueva_inconsistencia', (data: any) => {
+      const audio = new Audio('/alert.mp3');
+      audio.play().catch(e => console.log('No se pudo reproducir audio:', e));
+      const ts = new Date().toISOString();
+
+      setRealtimeNotification({ id_incidencia: data.id, message: data.message, tipo: 'inconsistencia', timestamp: ts });
+      setIsClosing(false);
+      setNotifications(prev => {
+        const updated = [{ id_incidencia: data.id, message: data.message, tipo: 'inconsistencia', read: false, timestamp: ts }, ...prev].slice(0, 50);
+        localStorage.setItem('sys_notifications', JSON.stringify(updated));
+        return updated;
+      });
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -130,7 +144,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
   };
 
   const handleNotificationClick = (n: { id_incidencia: number; tipo: string }) => {
-    if (n.tipo === 'revision_equipo') {
+    if (n.tipo === 'revision_equipo' || n.tipo === 'inconsistencia') {
       setActiveTab('almacen');
     } else {
       setActiveTab('denuncias');
@@ -510,11 +524,11 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
                     {notifications.length === 0 ? <div className="no-notifications">No hay notificaciones</div> :
                       notifications.map((n, index) => (
                         <div key={index} className={`notification-item-panel ${!n.read ? 'unread' : ''}`} onClick={() => handleNotificationClick(n)}>
-                          <div className={`notif-type-dot ${n.tipo === 'revision_equipo' ? 'revision' : 'incidencia'}`} />
+                          <div className={`notif-type-dot ${n.tipo === 'revision_equipo' ? 'revision' : n.tipo === 'inconsistencia' ? 'inconsistencia' : 'incidencia'}`} />
                           <div style={{ flex:1, minWidth:0 }}>
                             <div style={{ fontSize:'0.82rem', fontWeight: n.read ? 400 : 600 }}>{n.message}</div>
                             <div style={{ fontSize:'0.72rem', color:'var(--text-muted)', marginTop:2 }}>
-                              {n.tipo === 'revision_equipo' ? 'Revisión equipo' : 'Incidencia'} · {timeAgo(n.timestamp)}
+                              {n.tipo === 'revision_equipo' ? 'Revisión equipo' : n.tipo === 'inconsistencia' ? 'Inconsistencia' : 'Incidencia'} · {timeAgo(n.timestamp)}
                             </div>
                           </div>
                           <button className="remove-notification-btn" onClick={(e) => removeNotification(n.id_incidencia, e)}>&times;</button>
@@ -552,10 +566,12 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       </main>
 
       {realtimeNotification && createPortal(
-        <div className={`realtime-notification ${isClosing ? 'closing' : ''} ${realtimeNotification.tipo === 'revision_equipo' ? 'type-revision' : 'type-incidencia'}`} onClick={() => handleNotificationClick(realtimeNotification)}>
+        <div className={`realtime-notification ${isClosing ? 'closing' : ''} ${realtimeNotification.tipo === 'revision_equipo' ? 'type-revision' : realtimeNotification.tipo === 'inconsistencia' ? 'type-inconsistencia' : 'type-incidencia'}`} onClick={() => handleNotificationClick(realtimeNotification)}>
           <div className="realtime-notification-icon">
             {realtimeNotification.tipo === 'revision_equipo' ? (
               <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            ) : realtimeNotification.tipo === 'inconsistencia' ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
             ) : (
               <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
@@ -563,7 +579,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
             )}
           </div>
           <div className="realtime-notification-content">
-            <h4>{realtimeNotification.tipo === 'revision_equipo' ? 'Nueva Revisión de Equipo' : 'Nueva Incidencia'}</h4>
+            <h4>{realtimeNotification.tipo === 'revision_equipo' ? 'Nueva Revisión de Equipo' : realtimeNotification.tipo === 'inconsistencia' ? 'Inconsistencia Reportada' : 'Nueva Incidencia'}</h4>
             <p>{realtimeNotification.message}</p>
           </div>
           <button className="realtime-notification-close" onClick={(e) => { e.stopPropagation(); handleCloseNotification(); }} title="Cerrar">

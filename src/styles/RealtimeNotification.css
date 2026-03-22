@@ -43,6 +43,15 @@
   background: #E8F5E9;
 }
 
+.realtime-notification.type-inconsistencia {
+  border-left-color: #E65100;
+}
+
+.realtime-notification.type-inconsistencia .realtime-notification-icon {
+  color: #E65100;
+  background: #FFF3E0;
+}
+
 .realtime-notification.closing {
   animation: slideOutToRight 0.4s ease-in forwards;
 }
@@ -160,6 +169,10 @@
 
 .notif-type-dot.revision {
   background: #2E7D32;
+}
+
+.notif-type-dot.inconsistencia {
+  background: #E65100;
 }
 
 .remove-notification-btn {

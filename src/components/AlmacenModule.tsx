@@ -3,6 +3,7 @@ import EquiposModule from './EquiposModule';
 import '../pages/Almacen.css';
 import TiposEquipoModule from './TiposEquipoModule';
 import AsignacionesEquiposModule from './AsignacionesEquiposModule';
+import InconsistenciasModule from './InconsistenciasModule';
 
 const HistorialAlmacenModule = () => <div className="crud-module"><div className="crud-header"><h2>Historial General de Almacén</h2></div><p style={{textAlign: 'center', padding: '2rem', color: 'var(--text-muted)'}}>Módulo de historial general en construcción.</p></div>;
 
@@ -23,6 +24,11 @@ const AlmacenModule = () => {
                     Asignaciones
                 </button>
                 <button
+                    className={almacenTab === 'inconsistencias' ? 'active' : ''}
+                    onClick={() => setAlmacenTab('inconsistencias')}>
+                    Inconsistencias
+                </button>
+                <button
                     className={almacenTab === 'catalogos' ? 'active' : ''}
                     onClick={() => setAlmacenTab('catalogos')}>
                     Catálogos
@@ -36,6 +42,7 @@ const AlmacenModule = () => {
 
             {almacenTab === 'equipos' && <EquiposModule />}
             {almacenTab === 'asignaciones' && <AsignacionesEquiposModule />}
+            {almacenTab === 'inconsistencias' && <InconsistenciasModule />}
             {almacenTab === 'catalogos' && <TiposEquipoModule />}
             {almacenTab === 'historial' && <HistorialAlmacenModule />}
         </div>
