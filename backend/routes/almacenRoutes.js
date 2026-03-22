@@ -154,6 +154,9 @@ router.post('/revision', uploadRevision.single('foto'), async (req, res) => {
             [equipo_id, usuario_id, ubicacion || null, latitud || null, longitud || null, comentario || null, fotoRuta]
         );
 
+        // Marcar equipo como VALIDADO al ser revisado
+        await db.query("UPDATE equipos SET validacion = 'VALIDADO' WHERE id = ?", [equipo_id]);
+
         // Obtener nombre del equipo y revisor para la notificación
         const [[equipoInfo]] = await db.query(
             "SELECT e.descripcion, e.identificador FROM equipos e WHERE e.id = ?", [equipo_id]
@@ -257,6 +260,192 @@ router.get('/revisiones', async (req, res) => {
         `);
         res.json(rows);
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 7. Registrar inconsistencia (equipo físico que no existe en la BD) ---
+router.post('/inconsistencia', uploadRevision.single('foto'), async (req, res) => {
+    const { usuario_id, codigo_encontrado, descripcion, motivo, ubicacion, latitud, longitud } = req.body;
+
+    if (!usuario_id || !codigo_encontrado) {
+        return res.status(400).json({ message: 'usuario_id y codigo_encontrado son requeridos.' });
+    }
+
+    try {
+        const fotoRuta = req.file ? req.file.path.replace(/\\/g, '/') : null;
+
+        const [result] = await db.query(
+            `INSERT INTO inconsistencias_equipo (usuario_id, codigo_encontrado, descripcion, motivo, ubicacion, latitud, longitud, foto_ruta)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [usuario_id, codigo_encontrado, descripcion || null, motivo || null, ubicacion || null, latitud || null, longitud || null, fotoRuta]
+        );
+
+        // Notificación en tiempo real al panel web
+        const [[revisorInfo]] = await db.query(
+            `SELECT CONCAT(p.nombres, ' ', p.apellidos) as nombre FROM usuario u
+             JOIN personal p ON u.id_personal = p.id_personal WHERE u.id_usuario = ?`, [usuario_id]
+        );
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('nueva_inconsistencia', {
+                id: result.insertId,
+                codigo: codigo_encontrado,
+                motivo: motivo || '',
+                revisor: revisorInfo?.nombre || 'Almacenero',
+                message: `Inconsistencia reportada: equipo "${codigo_encontrado}" no encontrado en BD - ${revisorInfo?.nombre || 'Almacenero'}`
+            });
+        }
+
+        res.status(201).json({
+            message: 'Inconsistencia registrada con éxito.',
+            id: result.insertId
+        });
+    } catch (err) {
+        console.error("Error al registrar inconsistencia:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 8. Listar inconsistencias (para el panel web y app) ---
+router.get('/inconsistencias', async (req, res) => {
+    const { page = 1, limit = 20, estado } = req.query;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = (pageNum - 1) * limitNum;
+
+    let whereClause = '';
+    let params = [];
+
+    if (estado) {
+        whereClause = 'WHERE i.estado = ?';
+        params.push(estado);
+    }
+
+    try {
+        const [countResult, dataResult] = await Promise.all([
+            db.query(`SELECT COUNT(*) as total FROM inconsistencias_equipo i ${whereClause}`, params),
+            db.query(`
+                SELECT
+                    i.*,
+                    CONCAT(p.nombres, ' ', p.apellidos) as nombre_reportante
+                FROM inconsistencias_equipo i
+                JOIN usuario u ON i.usuario_id = u.id_usuario
+                JOIN personal p ON u.id_personal = p.id_personal
+                ${whereClause}
+                ORDER BY i.fecha_reporte DESC
+                LIMIT ? OFFSET ?
+            `, [...params, limitNum, offset])
+        ]);
+
+        const total = countResult[0][0].total;
+        res.json({
+            data: dataResult[0],
+            pagination: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) }
+        });
+    } catch (err) {
+        console.error("Error al listar inconsistencias:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 9. Resolver inconsistencia (desde el panel web) ---
+router.put('/inconsistencias/:id/resolver', async (req, res) => {
+    const { resolucion } = req.body;
+    try {
+        await db.query(
+            `UPDATE inconsistencias_equipo SET estado = 'RESUELTA', resolucion = ?, fecha_resolucion = NOW() WHERE id = ?`,
+            [resolucion || 'Resuelta', req.params.id]
+        );
+        res.json({ message: 'Inconsistencia marcada como resuelta.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 10. Actualizar operatividad de equipo (desde la app) ---
+router.put('/equipos/:id/operatividad', async (req, res) => {
+    const { operatividad, usuario_id, comentario } = req.body;
+
+    if (!['OPERATIVO', 'INOPERATIVO'].includes(operatividad)) {
+        return res.status(400).json({ message: 'operatividad debe ser OPERATIVO o INOPERATIVO.' });
+    }
+
+    try {
+        await db.query("UPDATE equipos SET operatividad = ? WHERE id = ?", [operatividad, req.params.id]);
+
+        // Registrar en historial
+        await db.query(
+            "INSERT INTO historial_equipos (equipo_id, movimiento, observaciones) VALUES (?, ?, ?)",
+            [req.params.id, `OPERATIVIDAD_${operatividad}`, comentario || `Marcado como ${operatividad}`]
+        );
+
+        res.json({ message: `Equipo marcado como ${operatividad}.` });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 11. Listar equipos para la app del almacenero (optimizado para +50k registros) ---
+router.get('/equipos', async (req, res) => {
+    const { q = '', page = 1, limit = 20, estado } = req.query;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = (pageNum - 1) * limitNum;
+
+    let whereConditions = [];
+    let params = [];
+
+    // Filtro por búsqueda de texto
+    if (q.trim()) {
+        const search = `%${q.trim()}%`;
+        whereConditions.push(`(e.numero_serie LIKE ? OR e.identificador LIKE ? OR e.sbn LIKE ? OR e.descripcion LIKE ? OR e.marca LIKE ? OR e.modelo LIKE ? OR te.nombre LIKE ?)`);
+        params.push(search, search, search, search, search, search, search);
+    }
+
+    // Filtro por estado
+    if (estado) {
+        whereConditions.push(`e.estado = ?`);
+        params.push(estado);
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    const baseQuery = `
+        FROM equipos e
+        JOIN tipos_equipo te ON e.tipo_id = te.id
+        ${whereClause}
+    `;
+
+    try {
+        // Ejecutar count y data en paralelo
+        const [countResult, dataResult] = await Promise.all([
+            db.query(`SELECT COUNT(*) as total ${baseQuery}`, params),
+            db.query(`
+                SELECT
+                    e.id, e.descripcion, e.marca, e.modelo, e.numero_serie,
+                    e.identificador, e.sbn, e.estado, e.operatividad, e.validacion,
+                    e.fecha_registro, te.nombre as tipo_nombre
+                ${baseQuery}
+                ORDER BY e.id DESC
+                LIMIT ? OFFSET ?
+            `, [...params, limitNum, offset])
+        ]);
+
+        const total = countResult[0][0].total;
+
+        res.json({
+            data: dataResult[0],
+            pagination: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.ceil(total / limitNum)
+            }
+        });
+    } catch (err) {
+        console.error("Error al listar equipos almacén:", err);
         res.status(500).json({ error: err.message });
     }
 });

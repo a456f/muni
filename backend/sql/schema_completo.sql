@@ -178,11 +178,20 @@ CREATE TABLE `equipos` (
   `modelo` varchar(50) DEFAULT NULL,
   `numero_serie` varchar(50) DEFAULT NULL,
   `identificador` varchar(50) DEFAULT NULL,
+  `sbn` varchar(50) DEFAULT NULL,
+  `operatividad` varchar(15) DEFAULT 'OPERATIVO',
+  `validacion` varchar(15) DEFAULT 'PENDIENTE',
   `fecha_registro` datetime DEFAULT CURRENT_TIMESTAMP,
   `estado` varchar(30) DEFAULT 'ALMACEN',
   PRIMARY KEY (`id`),
   UNIQUE KEY `numero_serie` (`numero_serie`),
   KEY `tipo_id` (`tipo_id`),
+  KEY `idx_equipos_numero_serie` (`numero_serie`),
+  KEY `idx_equipos_identificador` (`identificador`),
+  KEY `idx_equipos_sbn` (`sbn`),
+  KEY `idx_equipos_estado` (`estado`),
+  KEY `idx_equipos_operatividad` (`operatividad`),
+  KEY `idx_equipos_validacion` (`validacion`),
   CONSTRAINT `equipos_ibfk_1` FOREIGN KEY (`tipo_id`) REFERENCES `tipos_equipo` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=52 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -316,6 +325,29 @@ CREATE TABLE `incidencias` (
   KEY `idx_inc_zona` (`zona`),
   CONSTRAINT `incidencias_ibfk_1` FOREIGN KEY (`id_sereno`) REFERENCES `personal` (`id_personal`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `inconsistencias_equipo`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `inconsistencias_equipo` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `usuario_id` int NOT NULL,
+  `codigo_encontrado` varchar(100) NOT NULL,
+  `descripcion` varchar(255) DEFAULT NULL,
+  `motivo` text,
+  `ubicacion` varchar(255) DEFAULT NULL,
+  `latitud` decimal(10,7) DEFAULT NULL,
+  `longitud` decimal(10,7) DEFAULT NULL,
+  `foto_ruta` varchar(255) DEFAULT NULL,
+  `estado` varchar(20) DEFAULT 'PENDIENTE',
+  `resolucion` text,
+  `fecha_reporte` datetime DEFAULT CURRENT_TIMESTAMP,
+  `fecha_resolucion` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_inconsistencias_usuario` (`usuario_id`),
+  KEY `idx_inconsistencias_estado` (`estado`),
+  CONSTRAINT `inconsistencias_equipo_ibfk_1` FOREIGN KEY (`usuario_id`) REFERENCES `usuario` (`id_usuario`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `ocurrencia`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;

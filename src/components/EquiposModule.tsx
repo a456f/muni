@@ -23,6 +23,8 @@ interface Equipo {
   sbn: string | null;
   fecha_registro: string;
   estado: 'ALMACEN' | 'ASIGNADO' | 'MANTENIMIENTO' | 'BAJA';
+  operatividad: 'OPERATIVO' | 'INOPERATIVO' | null;
+  validacion: 'PENDIENTE' | 'VALIDADO';
   tipo_nombre: string;
   persona_asignada: string | null;
   area_asignada: string | null;
@@ -235,6 +237,8 @@ const EquiposModule = () => {
             { header: 'Identificador', key: 'identificador', width: 20 },
             { header: 'SBN', key: 'sbn', width: 20 },
             { header: 'Estado', key: 'estado', width: 15 },
+            { header: 'Operatividad', key: 'operatividad', width: 15 },
+            { header: 'Validación', key: 'validacion', width: 15 },
             { header: 'Asignado A', key: 'persona_asignada', width: 25 },
             { header: 'Área Asignada', key: 'area_asignada', width: 25 },
         ];
@@ -251,6 +255,8 @@ const EquiposModule = () => {
             ...item,
             identificador: item.identificador || '',
             sbn: item.sbn || '',
+            operatividad: item.operatividad || 'OPERATIVO',
+            validacion: item.validacion || 'PENDIENTE',
             persona_asignada: item.persona_asignada || '',
             area_asignada: item.area_asignada || '',
         }));
@@ -339,12 +345,14 @@ const EquiposModule = () => {
             )}
             <div className="table-responsive">
                 <table className="crud-table">
-                    <thead><tr><th>Tipo</th><th>Descripción</th><th>Marca/Modelo</th><th>N/S</th><th>SBN</th><th>Estado</th><th>Asignado a</th><th>Acciones</th></tr></thead>
+                    <thead><tr><th>Tipo</th><th>Descripción</th><th>Marca/Modelo</th><th>N/S</th><th>SBN</th><th>Estado</th><th>Operatividad</th><th>Validación</th><th>Asignado a</th><th>Acciones</th></tr></thead>
                     <tbody>
                         {equipos.map(item => (
                             <tr key={item.id}>
                                 <td>{item.tipo_nombre}</td><td>{item.descripcion}</td><td>{item.marca} {item.modelo}</td><td>{item.numero_serie}</td><td>{item.sbn || '-'}</td>
                                 <td><span className={`badge status-${item.estado.toLowerCase()}`}>{item.estado}</span></td>
+                                <td><span className={`badge status-${(item.operatividad || 'OPERATIVO').toLowerCase()}`}>{item.operatividad || 'OPERATIVO'}</span></td>
+                                <td><span className={`badge status-${(item.validacion || 'PENDIENTE').toLowerCase()}`}>{item.validacion || 'PENDIENTE'}</span></td>
                                 <td>
                                     {item.estado === 'ASIGNADO' 
                                         ? (item.persona_asignada 

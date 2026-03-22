@@ -499,6 +499,10 @@
 .status-asignado { background: var(--primary-50); color: #2E7D32; }
 .status-mantenimiento { background: var(--accent-orange-bg, #FFF3E0); color: #E65100; }
 .status-baja { background: var(--accent-red-bg); color: #C62828; }
+.status-operativo { background: #E8F5E9; color: #2E7D32; }
+.status-inoperativo { background: var(--accent-red-bg, #FFEBEE); color: #C62828; }
+.status-validado { background: #E8F5E9; color: #2E7D32; }
+.status-pendiente { background: var(--accent-orange-bg, #FFF3E0); color: #E65100; }
 
 /* ==============================================
    MENSAJES DE ERROR
