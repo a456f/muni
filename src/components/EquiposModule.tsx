@@ -20,6 +20,7 @@ interface Equipo {
   modelo: string;
   numero_serie: string;
   identificador: string | null;
+  sbn: string | null;
   fecha_registro: string;
   estado: 'ALMACEN' | 'ASIGNADO' | 'MANTENIMIENTO' | 'BAJA';
   tipo_nombre: string;
@@ -64,7 +65,8 @@ const EquiposModule = () => {
         marca: '',
         modelo: '',
         numero_serie: '',
-        identificador: ''
+        identificador: '',
+        sbn: ''
     };
     const [form, setForm] = useState(initialFormState);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -132,7 +134,8 @@ const EquiposModule = () => {
                 marca: item.marca,
                 modelo: item.modelo,
                 numero_serie: item.numero_serie,
-                identificador: item.identificador || ''
+                identificador: item.identificador || '',
+                sbn: item.sbn || ''
             });
             setEditingId(item.id);
         } else {
@@ -230,6 +233,7 @@ const EquiposModule = () => {
             { header: 'Modelo', key: 'modelo', width: 20 },
             { header: 'Serie', key: 'numero_serie', width: 25 },
             { header: 'Identificador', key: 'identificador', width: 20 },
+            { header: 'SBN', key: 'sbn', width: 20 },
             { header: 'Estado', key: 'estado', width: 15 },
             { header: 'Asignado A', key: 'persona_asignada', width: 25 },
             { header: 'Área Asignada', key: 'area_asignada', width: 25 },
@@ -246,6 +250,7 @@ const EquiposModule = () => {
             const data = allEquipos.map((item: Equipo) => ({
             ...item,
             identificador: item.identificador || '',
+            sbn: item.sbn || '',
             persona_asignada: item.persona_asignada || '',
             area_asignada: item.area_asignada || '',
         }));
@@ -319,6 +324,7 @@ const EquiposModule = () => {
                                         </button>
                                     </div>
                                     <input name="identificador" placeholder="Identificador Interno (ej: CAM-01)" value={form.identificador} onChange={e => setForm({...form, identificador: e.target.value || ''})} />
+                                    <input name="sbn" placeholder="Código SBN" value={form.sbn} onChange={e => setForm({...form, sbn: e.target.value || ''})} />
                                 </div>
                             </div>
                             <div className="modal-footer">
@@ -333,11 +339,11 @@ const EquiposModule = () => {
             )}
             <div className="table-responsive">
                 <table className="crud-table">
-                    <thead><tr><th>Tipo</th><th>Descripción</th><th>Marca/Modelo</th><th>N/S</th><th>Estado</th><th>Asignado a</th><th>Acciones</th></tr></thead>
+                    <thead><tr><th>Tipo</th><th>Descripción</th><th>Marca/Modelo</th><th>N/S</th><th>SBN</th><th>Estado</th><th>Asignado a</th><th>Acciones</th></tr></thead>
                     <tbody>
                         {equipos.map(item => (
                             <tr key={item.id}>
-                                <td>{item.tipo_nombre}</td><td>{item.descripcion}</td><td>{item.marca} {item.modelo}</td><td>{item.numero_serie}</td>
+                                <td>{item.tipo_nombre}</td><td>{item.descripcion}</td><td>{item.marca} {item.modelo}</td><td>{item.numero_serie}</td><td>{item.sbn || '-'}</td>
                                 <td><span className={`badge status-${item.estado.toLowerCase()}`}>{item.estado}</span></td>
                                 <td>
                                     {item.estado === 'ASIGNADO' 

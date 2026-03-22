@@ -853,11 +853,12 @@ app.get('/api/equipos', async (req, res) => {
             OR modelo LIKE ?
             OR numero_serie LIKE ?
             OR identificador LIKE ?
+            OR sbn LIKE ?
             OR estado LIKE ?
             OR persona_asignada LIKE ?
             OR area_asignada LIKE ?
         `;
-        params = Array(9).fill(searchTermWithWildcards);
+        params = Array(10).fill(searchTermWithWildcards);
     }
 
     const subquery = `
@@ -906,13 +907,13 @@ app.get('/api/equipos', async (req, res) => {
 });
 
 app.post('/api/equipos', async (req, res) => {
-  const { tipo_id, descripcion, marca, modelo, numero_serie, identificador } = req.body;
+  const { tipo_id, descripcion, marca, modelo, numero_serie, identificador, sbn } = req.body;
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
     const [result] = await connection.query(
-      "INSERT INTO equipos (tipo_id, descripcion, marca, modelo, numero_serie, identificador, estado) VALUES (?, ?, ?, ?, ?, ?, 'ALMACEN')",
-      [tipo_id, descripcion, marca, modelo, numero_serie, identificador]
+      "INSERT INTO equipos (tipo_id, descripcion, marca, modelo, numero_serie, identificador, sbn, estado) VALUES (?, ?, ?, ?, ?, ?, ?, 'ALMACEN')",
+      [tipo_id, descripcion, marca, modelo, numero_serie, identificador, sbn || null]
     );
     const newEquipoId = result.insertId;
     await connection.query(
@@ -933,11 +934,11 @@ app.post('/api/equipos', async (req, res) => {
 });
 
 app.put('/api/equipos/:id', async (req, res) => {
-  const { tipo_id, descripcion, marca, modelo, numero_serie, identificador, estado } = req.body;
+  const { tipo_id, descripcion, marca, modelo, numero_serie, identificador, sbn, estado } = req.body;
   try {
     await db.query(
-      "UPDATE equipos SET tipo_id = ?, descripcion = ?, marca = ?, modelo = ?, numero_serie = ?, identificador = ?, estado = ? WHERE id = ?",
-      [tipo_id, descripcion, marca, modelo, numero_serie, identificador, estado, req.params.id]
+      "UPDATE equipos SET tipo_id = ?, descripcion = ?, marca = ?, modelo = ?, numero_serie = ?, identificador = ?, sbn = ?, estado = ? WHERE id = ?",
+      [tipo_id, descripcion, marca, modelo, numero_serie, identificador, sbn || null, estado, req.params.id]
     );
     res.json({ message: "Equipo actualizado" });
   } catch (err) {
