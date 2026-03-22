@@ -47,7 +47,7 @@ const Login = ({ onLogin }: LoginProps) => {
           <div className="login-brand-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
           </div>
-          <span className="login-brand-text">SYS-IN-TEAM</span>
+          <span className="login-brand-text">OISGO</span>
         </div>
 
         {/* Formulario */}
@@ -113,7 +113,7 @@ const Login = ({ onLogin }: LoginProps) => {
             <path d="M0,80 C120,50 200,95 320,65 C380,45 430,70 440,60 L440,100 L0,100 Z" fill="#2E7D32"/>
           </svg>
           <div className="login-copyright">
-            © 2024 SYS-IN-TEAM.<br/>Todos los derechos reservados.
+            © 2024 OISGO.<br/>Todos los derechos reservados.
           </div>
         </div>
       </div>
