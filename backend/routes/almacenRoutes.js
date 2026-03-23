@@ -220,6 +220,8 @@ router.get('/mis-revisiones/:usuario_id', async (req, res) => {
                 r.id,
                 r.equipo_id,
                 r.ubicacion,
+                r.latitud,
+                r.longitud,
                 r.comentario,
                 r.foto_ruta,
                 r.fecha_revision,
