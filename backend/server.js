@@ -836,6 +836,24 @@ app.delete('/api/tipos-equipo/:id', async (req, res) => {
     }
 });
 
+// --- Resumen Equipos por Tipo ---
+app.get('/api/equipos/resumen', async (req, res) => {
+    try {
+        const [rows] = await pool.query(`
+            SELECT te.nombre AS tipo, COUNT(*) AS cantidad
+            FROM equipos e
+            JOIN tipos_equipo te ON e.tipo_id = te.id
+            GROUP BY te.id, te.nombre
+            ORDER BY cantidad DESC
+        `);
+        const total = rows.reduce((sum, r) => sum + r.cantidad, 0);
+        res.json({ resumen: rows, total });
+    } catch (error) {
+        console.error('Error fetching resumen:', error);
+        res.status(500).json({ error: 'Error al obtener resumen' });
+    }
+});
+
 // --- CRUD Equipos ---
 app.get('/api/equipos', async (req, res) => {
     const { searchTerm, page = 1, limit = 15, forExport } = req.query;

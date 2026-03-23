@@ -49,6 +49,11 @@ interface Pagination {
     limit: number;
 }
 
+interface ResumenItem {
+    tipo: string;
+    cantidad: number;
+}
+
 interface EquiposApiResponse {
     data: Equipo[];
     pagination: Pagination;
@@ -80,12 +85,15 @@ const EquiposModule = () => {
     const [fotoModal, setFotoModal] = useState<string | null>(null);
     const { notification, showNotification, hideNotification } = useNotification();
     const [error, setError] = useState<string | null>(null);
+    const [resumen, setResumen] = useState<ResumenItem[]>([]);
+    const [totalEquipos, setTotalEquipos] = useState(0);
 
     const fetchData = async () => {
         try {
-            const [resEquipos, resTipos] = await Promise.all([
+            const [resEquipos, resTipos, resResumen] = await Promise.all([
                 fetch(`${API_URL}/equipos?searchTerm=${searchTerm}&page=${currentPage}`),
-                fetch(`${API_URL}/tipos-equipo`)
+                fetch(`${API_URL}/tipos-equipo`),
+                fetch(`${API_URL}/equipos/resumen`)
             ]);
             if (resEquipos.ok) {
                 const responseJson: EquiposApiResponse = await resEquipos.json();
@@ -94,6 +102,11 @@ const EquiposModule = () => {
                 setPagination(responseJson.pagination);
             }
 
+            if (resResumen.ok) {
+                const resumenJson = await resResumen.json();
+                setResumen(resumenJson.resumen);
+                setTotalEquipos(resumenJson.total);
+            }
 
             if (resTipos.ok) setTiposEquipo(await resTipos.json());
             setLoading(false);
@@ -302,6 +315,53 @@ const EquiposModule = () => {
                     className="search-input"
                     />
             </div>
+            {/* Resumen visual por tipo */}
+            {resumen.length > 0 && (
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                    gap: '10px',
+                    marginBottom: '16px',
+                    padding: '0'
+                }}>
+                    {/* Tarjeta Total */}
+                    <div style={{
+                        background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                        color: '#fff',
+                        borderRadius: '10px',
+                        padding: '14px 16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        minHeight: '80px'
+                    }}>
+                        <span style={{ fontSize: '0.78rem', opacity: 0.85, fontWeight: 500 }}>TOTAL EQUIPOS</span>
+                        <span style={{ fontSize: '1.8rem', fontWeight: 700, lineHeight: 1 }}>{totalEquipos.toLocaleString()}</span>
+                    </div>
+                    {/* Tarjetas por tipo */}
+                    {resumen.map((item, i) => {
+                        const colors = ['#059669','#d97706','#7c3aed','#dc2626','#0891b2','#c026d3','#ea580c','#4f46e5','#0d9488','#be123c','#65a30d','#6366f1','#e11d48','#0284c7','#a21caf'];
+                        const color = colors[i % colors.length];
+                        return (
+                            <div key={item.tipo} style={{
+                                background: 'var(--bg-card, #fff)',
+                                borderRadius: '10px',
+                                padding: '14px 16px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                                minHeight: '80px',
+                                borderLeft: `4px solid ${color}`,
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
+                            }}>
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted, #64748b)', fontWeight: 500, textTransform: 'uppercase' }}>{item.tipo}</span>
+                                <span style={{ fontSize: '1.5rem', fontWeight: 700, color }}>{item.cantidad}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
             {isModalOpen && createPortal(
                 <div className="modal-overlay" onClick={closeModal}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
