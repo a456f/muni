@@ -839,7 +839,7 @@ app.delete('/api/tipos-equipo/:id', async (req, res) => {
 // --- Resumen Equipos por Tipo ---
 app.get('/api/equipos/resumen', async (req, res) => {
     try {
-        const [rows] = await pool.query(`
+        const [rows] = await db.query(`
             SELECT COALESCE(te.nombre, 'SIN TIPO') AS tipo, COUNT(*) AS cantidad
             FROM equipos e
             LEFT JOIN tipos_equipo te ON e.tipo_id = te.id
