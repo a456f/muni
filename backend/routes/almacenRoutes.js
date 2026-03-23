@@ -159,7 +159,7 @@ router.post('/revision', uploadRevision.single('foto'), async (req, res) => {
 
         // Obtener nombre del equipo y revisor para la notificación
         const [[equipoInfo]] = await db.query(
-            "SELECT e.descripcion, e.identificador FROM equipos e WHERE e.id = ?", [equipo_id]
+            "SELECT e.descripcion, e.identificador, e.numero_serie FROM equipos e WHERE e.id = ?", [equipo_id]
         );
         const [[revisorInfo]] = await db.query(
             `SELECT CONCAT(p.nombres, ' ', p.apellidos) as nombre FROM usuario u
@@ -175,6 +175,7 @@ router.post('/revision', uploadRevision.single('foto'), async (req, res) => {
                 id_revision: revId,
                 equipo: equipoInfo?.descripcion || 'Equipo',
                 equipo_codigo: equipoInfo?.identificador || '',
+                numero_serie: equipoInfo?.numero_serie || '',
                 revisor: revisorInfo?.nombre || 'Almacenero',
                 ubicacion: ubicacion || '',
                 comentario: comentario || '',

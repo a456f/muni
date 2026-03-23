@@ -36,8 +36,8 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
   const [configTab, setConfigTab] = useState('tipos');
   const [kpis, setKpis] = useState({ total: 0, resueltas: 0, pendientes: 0, efectividad: 0 });
   const [stats, setStats] = useState<any>(null);
-  const [realtimeNotification, setRealtimeNotification] = useState<{ id_incidencia: number; message: string; tipo: string; timestamp: string } | null>(null);
-  const [notifications, setNotifications] = useState<{ id_incidencia: number; message: string; tipo: string; read: boolean; timestamp: string }[]>(() => {
+  const [realtimeNotification, setRealtimeNotification] = useState<{ id_incidencia: number; message: string; tipo: string; timestamp: string; numero_serie?: string } | null>(null);
+  const [notifications, setNotifications] = useState<{ id_incidencia: number; message: string; tipo: string; read: boolean; timestamp: string; numero_serie?: string }[]>(() => {
     try { return JSON.parse(localStorage.getItem('sys_notifications') || '[]'); } catch { return []; }
   });
   const [showNotifications, setShowNotifications] = useState(false);
@@ -86,10 +86,10 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       audio.play().catch(e => console.log('No se pudo reproducir audio:', e));
       const ts = new Date().toISOString();
 
-      setRealtimeNotification({ id_incidencia: data.id_revision, message: data.message, tipo: 'revision_equipo', timestamp: ts });
+      setRealtimeNotification({ id_incidencia: data.id_revision, message: data.message, tipo: 'revision_equipo', timestamp: ts, numero_serie: data.numero_serie || '' });
       setIsClosing(false);
       setNotifications(prev => {
-        const updated = [{ id_incidencia: data.id_revision, message: data.message, tipo: 'revision_equipo', read: false, timestamp: ts }, ...prev].slice(0, 50);
+        const updated = [{ id_incidencia: data.id_revision, message: data.message, tipo: 'revision_equipo', read: false, timestamp: ts, numero_serie: data.numero_serie || '' }, ...prev].slice(0, 50);
         localStorage.setItem('sys_notifications', JSON.stringify(updated));
         return updated;
       });
@@ -143,9 +143,12 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
     }
   };
 
-  const handleNotificationClick = (n: { id_incidencia: number; tipo: string }) => {
+  const handleNotificationClick = (n: { id_incidencia: number; tipo: string; numero_serie?: string }) => {
     if (n.tipo === 'revision_equipo' || n.tipo === 'inconsistencia') {
       setActiveTab('almacen');
+      if (n.numero_serie) {
+        sessionStorage.setItem('searchEquipo', n.numero_serie);
+      }
     } else {
       setActiveTab('denuncias');
       sessionStorage.setItem('highlightIncidencia', n.id_incidencia.toString());

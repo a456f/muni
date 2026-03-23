@@ -122,6 +122,14 @@ const EquiposModule = () => {
     };
 
     useEffect(() => {
+        const saved = sessionStorage.getItem('searchEquipo');
+        if (saved) {
+            setSearchTerm(saved);
+            sessionStorage.removeItem('searchEquipo');
+        }
+    }, []);
+
+    useEffect(() => {
         fetchData();
     }, [currentPage, searchTerm]);
 
