@@ -840,17 +840,17 @@ app.delete('/api/tipos-equipo/:id', async (req, res) => {
 app.get('/api/equipos/resumen', async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT te.nombre AS tipo, COUNT(*) AS cantidad
+            SELECT COALESCE(te.nombre, 'SIN TIPO') AS tipo, COUNT(*) AS cantidad
             FROM equipos e
-            JOIN tipos_equipo te ON e.tipo_id = te.id
+            LEFT JOIN tipos_equipo te ON e.tipo_id = te.id
             GROUP BY te.id, te.nombre
             ORDER BY cantidad DESC
         `);
-        const total = rows.reduce((sum, r) => sum + r.cantidad, 0);
+        const total = rows.reduce((sum, r) => sum + Number(r.cantidad), 0);
         res.json({ resumen: rows, total });
     } catch (error) {
-        console.error('Error fetching resumen:', error);
-        res.status(500).json({ error: 'Error al obtener resumen' });
+        console.error('Error fetching resumen:', error.message);
+        res.status(500).json({ error: error.message });
     }
 });
 
