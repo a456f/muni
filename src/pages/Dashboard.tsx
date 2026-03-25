@@ -17,6 +17,9 @@ import PrioridadIncidenciaModule from '../components/PrioridadIncidenciaModule';
 import type { User } from '../services/authService';
 import AlmacenModule from '../components/AlmacenModule';
 import SaludModule from '../components/SaludModule';
+import TipoAtencionSaludModule from '../components/TipoAtencionSaludModule';
+import EstablecimientoSaludModule from '../components/EstablecimientoSaludModule';
+import SaludDashboard from '../components/SaludDashboard';
 import SupervisoresModule from '../components/SupervisoresModule';
 import { API_URL, BASE_URL } from '../config/api';
 import { io } from 'socket.io-client';
@@ -420,7 +423,14 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       case 'almacen':
         return <AlmacenModule />;
       case 'salud':
+      case 'salud-atenciones':
         return <SaludModule />;
+      case 'salud-tipos':
+        return <TipoAtencionSaludModule />;
+      case 'salud-establecimientos':
+        return <EstablecimientoSaludModule />;
+      case 'salud-dashboard':
+        return <SaludDashboard />;
       case 'supervisores':
         return <SupervisoresModule />;
       case 'geografia':
@@ -502,6 +512,10 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
                 patrullaje: 'Patrullaje',
                 almacen: 'Almacén',
                 salud: 'Salud',
+                'salud-atenciones': 'Salud - Atenciones',
+                'salud-tipos': 'Salud - Tipos de Atención',
+                'salud-establecimientos': 'Salud - Establecimientos',
+                'salud-dashboard': 'Salud - Estadísticas',
                 supervisores: 'Supervisores',
                 geografia: 'Geografía',
                 configuracion: 'Configuración'

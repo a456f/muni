@@ -4,9 +4,10 @@ import { db } from '../server.js';
 
 const router = express.Router();
 
-// --- 1. GESTIÓN DE PACIENTES ---
+// =============================================
+// 1. GESTIÓN DE PACIENTES
+// =============================================
 
-// Buscar paciente por DNI
 router.get('/pacientes/buscar/:dni', async (req, res) => {
     try {
         const [rows] = await db.query("SELECT * FROM paciente WHERE dni = ?", [req.params.dni]);
@@ -20,12 +21,14 @@ router.get('/pacientes/buscar/:dni', async (req, res) => {
     }
 });
 
-// --- 2. GESTIÓN DE PERSONAL DE SALUD ---
+// =============================================
+// 2. GESTIÓN DE PERSONAL DE SALUD
+// =============================================
 
 router.get('/personal', async (req, res) => {
     try {
         const [rows] = await db.query(`
-            SELECT 
+            SELECT
                 p.id_personal AS id,
                 p.id_personal,
                 CONCAT(p.nombres, ' ', p.apellidos) AS nombre,
@@ -54,7 +57,125 @@ router.post('/personal', async (req, res) => {
     }
 });
 
-// --- 3. GESTIÓN DE ATENCIONES (TRANSACCIÓN COMPLETA) ---
+// =============================================
+// 3. TIPOS DE ATENCIÓN DE SALUD (CRUD)
+// =============================================
+
+router.get('/tipos-atencion', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT * FROM tipo_atencion_salud ORDER BY nombre");
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/tipos-atencion/:id', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT * FROM tipo_atencion_salud WHERE id = ?", [req.params.id]);
+        if (rows.length > 0) res.json(rows[0]);
+        else res.status(404).json({ message: "Tipo de atención no encontrado" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/tipos-atencion', async (req, res) => {
+    const { nombre, descripcion } = req.body;
+    try {
+        const [result] = await db.query(
+            "INSERT INTO tipo_atencion_salud (nombre, descripcion) VALUES (?, ?)",
+            [nombre, descripcion || null]
+        );
+        res.status(201).json({ message: "Tipo de atención creado", id: result.insertId });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.put('/tipos-atencion/:id', async (req, res) => {
+    const { nombre, descripcion, estado } = req.body;
+    try {
+        await db.query(
+            "UPDATE tipo_atencion_salud SET nombre = ?, descripcion = ?, estado = ? WHERE id = ?",
+            [nombre, descripcion || null, estado ?? 1, req.params.id]
+        );
+        res.json({ message: "Tipo de atención actualizado" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.delete('/tipos-atencion/:id', async (req, res) => {
+    try {
+        await db.query("UPDATE tipo_atencion_salud SET estado = 0 WHERE id = ?", [req.params.id]);
+        res.json({ message: "Tipo de atención desactivado" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// =============================================
+// 4. ESTABLECIMIENTOS DE SALUD (CRUD)
+// =============================================
+
+router.get('/establecimientos', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT * FROM establecimiento_salud ORDER BY nombre");
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/establecimientos/:id', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT * FROM establecimiento_salud WHERE id = ?", [req.params.id]);
+        if (rows.length > 0) res.json(rows[0]);
+        else res.status(404).json({ message: "Establecimiento no encontrado" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/establecimientos', async (req, res) => {
+    const { nombre, tipo, direccion, telefono, distrito } = req.body;
+    try {
+        const [result] = await db.query(
+            "INSERT INTO establecimiento_salud (nombre, tipo, direccion, telefono, distrito) VALUES (?, ?, ?, ?, ?)",
+            [nombre, tipo || 'HOSPITAL', direccion || null, telefono || null, distrito || null]
+        );
+        res.status(201).json({ message: "Establecimiento creado", id: result.insertId });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.put('/establecimientos/:id', async (req, res) => {
+    const { nombre, tipo, direccion, telefono, distrito, estado } = req.body;
+    try {
+        await db.query(
+            "UPDATE establecimiento_salud SET nombre = ?, tipo = ?, direccion = ?, telefono = ?, distrito = ?, estado = ? WHERE id = ?",
+            [nombre, tipo, direccion || null, telefono || null, distrito || null, estado ?? 1, req.params.id]
+        );
+        res.json({ message: "Establecimiento actualizado" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.delete('/establecimientos/:id', async (req, res) => {
+    try {
+        await db.query("UPDATE establecimiento_salud SET estado = 0 WHERE id = ?", [req.params.id]);
+        res.json({ message: "Establecimiento desactivado" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// =============================================
+// 5. GESTIÓN DE ATENCIONES (TRANSACCIÓN COMPLETA)
+// =============================================
 
 router.get('/atenciones', async (req, res) => {
     try {
@@ -67,11 +188,16 @@ router.get('/atenciones', async (req, res) => {
         const [rows] = await db.query(`
             SELECT
                 a.id, a.numero, a.fecha, a.hora_inicio,
-                p.dni, p.nombres, p.apellido_paterno, p.apellido_materno,
-                c.tipo as clasificacion
+                p.dni, p.nombres, p.apellido_paterno, p.apellido_materno, p.sexo,
+                c.tipo as clasificacion,
+                ta.nombre as tipo_atencion,
+                es.nombre as establecimiento_traslado
             FROM atencion a
             JOIN paciente p ON a.paciente_id = p.id
             LEFT JOIN clasificacion c ON c.atencion_id = a.id
+            LEFT JOIN tipo_atencion_salud ta ON ta.id = a.tipo_atencion_id
+            LEFT JOIN traslado_salud ts ON ts.atencion_id = a.id
+            LEFT JOIN establecimiento_salud es ON es.id = ts.establecimiento_id
             ORDER BY a.fecha DESC, a.hora_inicio DESC
             LIMIT ? OFFSET ?
         `, [limit, offset]);
@@ -81,24 +207,24 @@ router.get('/atenciones', async (req, res) => {
     }
 });
 
-// Obtener detalle completo de una atención
 router.get('/atenciones/:id', async (req, res) => {
     try {
         const { id } = req.params;
 
-        // 1. Datos principales
         const [mainRows] = await db.query(`
-            SELECT 
+            SELECT
                 a.*,
                 p.dni, p.nombres, p.apellido_paterno, p.apellido_materno, p.edad, p.sexo,
                 o.direccion, o.telefono, o.operador, o.hora_llamada, o.hora_ingreso,
                 e.motivo, e.enfermedad_actual, e.examen_fisico,
-                c.tipo as clasificacion
+                c.tipo as clasificacion,
+                ta.nombre as tipo_atencion
             FROM atencion a
             JOIN paciente p ON a.paciente_id = p.id
             LEFT JOIN ocurrencia o ON o.atencion_id = a.id
             LEFT JOIN evaluacion_medica e ON e.atencion_id = a.id
             LEFT JOIN clasificacion c ON c.atencion_id = a.id
+            LEFT JOIN tipo_atencion_salud ta ON ta.id = a.tipo_atencion_id
             WHERE a.id = ?
         `, [id]);
 
@@ -108,15 +234,10 @@ router.get('/atenciones/:id', async (req, res) => {
 
         const atencion = mainRows[0];
 
-        // 2. Diagnósticos
         const [diagnosticos] = await db.query("SELECT descripcion FROM diagnostico WHERE atencion_id = ?", [id]);
-
-        // 3. Tratamientos
         const [tratamientos] = await db.query("SELECT descripcion FROM tratamiento WHERE atencion_id = ?", [id]);
-
-        // 4. Personal
         const [personal] = await db.query(`
-            SELECT 
+            SELECT
                 CONCAT(p.nombres, ' ', p.apellidos) AS nombre,
                 COALESCE(a.nombre, 'Salud') AS rol
             FROM atencion_personal ap
@@ -125,40 +246,45 @@ router.get('/atenciones/:id', async (req, res) => {
             WHERE ap.atencion_id = ?
         `, [id]);
 
-        res.json({ ...atencion, diagnosticos, tratamientos, personal });
+        // Traslados
+        const [traslados] = await db.query(`
+            SELECT ts.*, es.nombre as establecimiento_nombre, es.tipo as establecimiento_tipo, es.direccion as establecimiento_direccion
+            FROM traslado_salud ts
+            JOIN establecimiento_salud es ON es.id = ts.establecimiento_id
+            WHERE ts.atencion_id = ?
+            ORDER BY ts.fecha_traslado DESC
+        `, [id]);
+
+        res.json({ ...atencion, diagnosticos, tratamientos, personal, traslados });
 
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// REGISTRAR NUEVA ATENCIÓN
-// Este endpoint maneja la creación de registros en múltiples tablas usando una transacción
 router.post('/atenciones', async (req, res) => {
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
 
         const {
-            paciente,       // Objeto con datos del paciente
-            atencion,       // Objeto con datos de la atención (fecha, horas)
-            ocurrencia,     // Objeto con detalles de ocurrencia
-            evaluacion,     // Objeto con evaluación médica
-            diagnosticos,   // Array de strings o objetos
-            tratamiento,    // Objeto o string
-            clasificacion,  // Objeto con tipo
-            personal_ids    // Array de IDs de personal
+            paciente,
+            atencion,
+            ocurrencia,
+            evaluacion,
+            diagnosticos,
+            tratamiento,
+            clasificacion,
+            personal_ids,
+            tipo_atencion_id
         } = req.body;
 
-        // 1. Gestionar Paciente (Crear si no existe ID, o Actualizar si se desea)
         let pacienteId = paciente.id;
-        
-        // Si no viene ID, verificar si existe por DNI para evitar duplicados
+
         if (!pacienteId) {
             const [existing] = await connection.query("SELECT id FROM paciente WHERE dni = ?", [paciente.dni]);
             if (existing.length > 0) {
                 pacienteId = existing[0].id;
-                // Opcional: Actualizar datos del paciente si cambiaron
             } else {
                 const [pResult] = await connection.query(
                     "INSERT INTO paciente (dni, nombres, apellido_paterno, apellido_materno, edad, sexo) VALUES (?, ?, ?, ?, ?, ?)",
@@ -168,16 +294,13 @@ router.post('/atenciones', async (req, res) => {
             }
         }
 
-        // 2. Crear Atención
-        // Generar número de atención si no viene (usamos timestamp como ejemplo simple)
         const numeroAtencion = atencion.numero || `AT-${Date.now()}`;
         const [aResult] = await connection.query(
-            "INSERT INTO atencion (numero, fecha, hora_inicio, hora_fin, paciente_id) VALUES (?, ?, ?, ?, ?)",
-            [numeroAtencion, atencion.fecha, atencion.hora_inicio, atencion.hora_fin, pacienteId]
+            "INSERT INTO atencion (numero, fecha, hora_inicio, hora_fin, paciente_id, tipo_atencion_id) VALUES (?, ?, ?, ?, ?, ?)",
+            [numeroAtencion, atencion.fecha, atencion.hora_inicio, atencion.hora_fin, pacienteId, tipo_atencion_id || null]
         );
         const atencionId = aResult.insertId;
 
-        // 3. Registrar Ocurrencia
         if (ocurrencia) {
             await connection.query(
                 "INSERT INTO ocurrencia (atencion_id, direccion, telefono, operador, hora_llamada, hora_ingreso) VALUES (?, ?, ?, ?, ?, ?)",
@@ -185,7 +308,6 @@ router.post('/atenciones', async (req, res) => {
             );
         }
 
-        // 4. Registrar Evaluación Médica
         if (evaluacion) {
             await connection.query(
                 "INSERT INTO evaluacion_medica (atencion_id, motivo, enfermedad_actual, examen_fisico) VALUES (?, ?, ?, ?)",
@@ -193,7 +315,6 @@ router.post('/atenciones', async (req, res) => {
             );
         }
 
-        // 5. Registrar Diagnósticos (Puede ser uno o varios)
         if (diagnosticos && Array.isArray(diagnosticos)) {
             for (const diag of diagnosticos) {
                 if(diag.descripcion) {
@@ -202,17 +323,14 @@ router.post('/atenciones', async (req, res) => {
             }
         }
 
-        // 6. Registrar Tratamiento
         if (tratamiento && tratamiento.descripcion) {
              await connection.query("INSERT INTO tratamiento (atencion_id, descripcion) VALUES (?, ?)", [atencionId, tratamiento.descripcion]);
         }
 
-        // 7. Registrar Clasificación
         if (clasificacion && clasificacion.tipo) {
             await connection.query("INSERT INTO clasificacion (atencion_id, tipo) VALUES (?, ?)", [atencionId, clasificacion.tipo]);
         }
 
-        // 8. Asignar Personal (Relación Muchos a Muchos)
         if (personal_ids && Array.isArray(personal_ids)) {
             for (const pid of personal_ids) {
                 await connection.query("INSERT INTO atencion_personal (atencion_id, personal_id) VALUES (?, ?)", [atencionId, pid]);
@@ -228,6 +346,166 @@ router.post('/atenciones', async (req, res) => {
         res.status(500).json({ error: "Error al registrar la atención: " + err.message });
     } finally {
         connection.release();
+    }
+});
+
+// =============================================
+// 6. TRASLADOS A ESTABLECIMIENTOS (ASIGNACIÓN + HISTORIAL)
+// =============================================
+
+router.get('/traslados', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT ts.*,
+                   es.nombre as establecimiento_nombre, es.tipo as establecimiento_tipo,
+                   a.numero as atencion_numero, a.fecha as atencion_fecha,
+                   p.nombres as paciente_nombres, p.apellido_paterno, p.dni as paciente_dni
+            FROM traslado_salud ts
+            JOIN establecimiento_salud es ON es.id = ts.establecimiento_id
+            JOIN atencion a ON a.id = ts.atencion_id
+            JOIN paciente p ON p.id = a.paciente_id
+            ORDER BY ts.fecha_traslado DESC
+            LIMIT 100
+        `);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/traslados/atencion/:atencionId', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT ts.*, es.nombre as establecimiento_nombre, es.tipo as establecimiento_tipo, es.direccion as establecimiento_direccion
+            FROM traslado_salud ts
+            JOIN establecimiento_salud es ON es.id = ts.establecimiento_id
+            WHERE ts.atencion_id = ?
+            ORDER BY ts.fecha_traslado DESC
+        `, [req.params.atencionId]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/traslados', async (req, res) => {
+    const { atencion_id, establecimiento_id, hora_traslado, observaciones } = req.body;
+    try {
+        const [result] = await db.query(
+            "INSERT INTO traslado_salud (atencion_id, establecimiento_id, hora_traslado, observaciones) VALUES (?, ?, ?, ?)",
+            [atencion_id, establecimiento_id, hora_traslado || null, observaciones || null]
+        );
+        res.status(201).json({ message: "Traslado registrado", id: result.insertId });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.put('/traslados/:id', async (req, res) => {
+    const { establecimiento_id, hora_traslado, observaciones, estado } = req.body;
+    try {
+        await db.query(
+            "UPDATE traslado_salud SET establecimiento_id = ?, hora_traslado = ?, observaciones = ?, estado = ? WHERE id = ?",
+            [establecimiento_id, hora_traslado, observaciones, estado, req.params.id]
+        );
+        res.json({ message: "Traslado actualizado" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// =============================================
+// 7. ESTADÍSTICAS / DASHBOARD DE SALUD
+// =============================================
+
+router.get('/estadisticas', async (req, res) => {
+    try {
+        const mesParam = req.query.mes; // formato: YYYY-MM
+        let whereDate = '';
+        let params = [];
+
+        if (mesParam) {
+            whereDate = 'WHERE DATE_FORMAT(a.fecha, "%Y-%m") = ?';
+            params = [mesParam];
+        }
+
+        // Total de atenciones
+        const [[{ total_atenciones }]] = await db.query(
+            `SELECT COUNT(*) as total_atenciones FROM atencion a ${whereDate}`, params
+        );
+
+        // Por tipo de atención
+        const [porTipoAtencion] = await db.query(`
+            SELECT COALESCE(ta.nombre, 'SIN TIPO') as nombre, COUNT(*) as cantidad
+            FROM atencion a
+            LEFT JOIN tipo_atencion_salud ta ON ta.id = a.tipo_atencion_id
+            ${whereDate}
+            GROUP BY ta.nombre
+            ORDER BY cantidad DESC
+        `, params);
+
+        // Por establecimiento de traslado
+        const [porEstablecimiento] = await db.query(`
+            SELECT es.nombre, COUNT(*) as cantidad
+            FROM traslado_salud ts
+            JOIN establecimiento_salud es ON es.id = ts.establecimiento_id
+            JOIN atencion a ON a.id = ts.atencion_id
+            ${whereDate}
+            GROUP BY es.nombre
+            ORDER BY cantidad DESC
+        `, params);
+
+        // Por fecha (últimos 30 días o mes seleccionado)
+        const [porFecha] = await db.query(`
+            SELECT DATE_FORMAT(a.fecha, '%d %b') as fecha_label, a.fecha, COUNT(*) as cantidad
+            FROM atencion a
+            ${whereDate || 'WHERE a.fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)'}
+            GROUP BY a.fecha
+            ORDER BY a.fecha ASC
+        `, params);
+
+        // Por sexo
+        const [porSexo] = await db.query(`
+            SELECT CASE p.sexo WHEN 'M' THEN 'Masculino' WHEN 'F' THEN 'Femenino' ELSE 'No especificado' END as nombre,
+                   COUNT(*) as cantidad
+            FROM atencion a
+            JOIN paciente p ON p.id = a.paciente_id
+            ${whereDate}
+            GROUP BY p.sexo
+        `, params);
+
+        // Por clasificación
+        const [porClasificacion] = await db.query(`
+            SELECT COALESCE(c.tipo, 'Sin clasificación') as nombre, COUNT(*) as cantidad
+            FROM atencion a
+            LEFT JOIN clasificacion c ON c.atencion_id = a.id
+            ${whereDate}
+            GROUP BY c.tipo
+            ORDER BY cantidad DESC
+        `, params);
+
+        // Atenciones del mes actual vs anterior
+        const [[{ mes_actual }]] = await db.query(`
+            SELECT COUNT(*) as mes_actual FROM atencion
+            WHERE DATE_FORMAT(fecha, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')
+        `);
+        const [[{ mes_anterior }]] = await db.query(`
+            SELECT COUNT(*) as mes_anterior FROM atencion
+            WHERE DATE_FORMAT(fecha, '%Y-%m') = DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m')
+        `);
+
+        res.json({
+            total_atenciones,
+            porTipoAtencion,
+            porEstablecimiento,
+            porFecha,
+            porSexo,
+            porClasificacion,
+            mes_actual,
+            mes_anterior
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 

@@ -4,10 +4,8 @@ import { createPortal } from 'react-dom';
 import { useNotification } from './useNotification';
 import Notification from '../hooks/Notification';
 import { API_URL } from '../config/api';
-// jsPDF se carga dinámicamente al exportar PDF
-import './SaludModule.css'; // Importar los estilos
+import './SaludModule.css';
 
-// Interfaces para el tipado de datos
 interface Paciente {
   id?: number;
   dni: string;
@@ -20,10 +18,23 @@ interface Paciente {
 
 interface Personal {
   id: number;
-  id_personal?: number; // Añadimos esto por si la BD usa este nombre
+  id_personal?: number;
   nombre: string;
   rol: string;
   area?: string;
+}
+
+interface TipoAtencion {
+  id: number;
+  nombre: string;
+  estado: number;
+}
+
+interface Establecimiento {
+  id: number;
+  nombre: string;
+  tipo: string;
+  direccion: string | null;
 }
 
 interface AtencionResumen {
@@ -34,15 +45,29 @@ interface AtencionResumen {
   dni: string;
   nombres: string;
   apellido_paterno: string;
+  apellido_materno?: string;
+  sexo?: string;
   clasificacion: string;
+  tipo_atencion?: string;
+  establecimiento_traslado?: string;
 }
 
-// Interfaz para el detalle completo
+interface TrasladoDetalle {
+  id: number;
+  atencion_id: number;
+  establecimiento_id: number;
+  fecha_traslado: string;
+  hora_traslado: string;
+  observaciones: string;
+  estado: string;
+  establecimiento_nombre: string;
+  establecimiento_tipo: string;
+  establecimiento_direccion: string;
+}
+
 interface AtencionDetalle extends AtencionResumen {
   hora_fin: string;
-  apellido_materno: string;
   edad: number;
-  sexo: string;
   direccion: string;
   telefono: string;
   operador: string;
@@ -51,35 +76,44 @@ interface AtencionDetalle extends AtencionResumen {
   motivo: string;
   enfermedad_actual: string;
   examen_fisico: string;
+  tipo_atencion_id?: number;
   diagnosticos: { descripcion: string }[];
   tratamientos: { descripcion: string }[];
   personal: { nombre: string; rol: string }[];
+  traslados: TrasladoDetalle[];
 }
 
 const SaludModule = () => {
   const [atenciones, setAtenciones] = useState<AtencionResumen[]>([]);
   const [personalList, setPersonalList] = useState<Personal[]>([]);
+  const [tiposAtencion, setTiposAtencion] = useState<TipoAtencion[]>([]);
+  const [establecimientos, setEstablecimientos] = useState<Establecimiento[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewDetails, setViewDetails] = useState<AtencionDetalle | null>(null);
   const [saludPage, setSaludPage] = useState(1);
   const [saludPagination, setSaludPagination] = useState({ total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
   const { notification, showNotification, hideNotification } = useNotification();
-  
-  // Estado inicial del formulario complejo
+
+  // Modal de traslado
+  const [trasladoModal, setTrasladoModal] = useState<{ atencionId: number; atencionNumero: string } | null>(null);
+  const [trasladoForm, setTrasladoForm] = useState({ establecimiento_id: '', hora_traslado: '', observaciones: '' });
+  const [historialTraslados, setHistorialTraslados] = useState<TrasladoDetalle[]>([]);
+
   const initialFormState = {
     paciente: { dni: '', nombres: '', apellido_paterno: '', apellido_materno: '', edad: '' as number | '', sexo: 'M' },
-    atencion: { 
-        fecha: new Date().toISOString().split('T')[0], 
-        hora_inicio: '', 
-        hora_fin: '' 
+    atencion: {
+        fecha: new Date().toISOString().split('T')[0],
+        hora_inicio: '',
+        hora_fin: ''
     },
     ocurrencia: { direccion: '', telefono: '', operador: '', hora_llamada: '', hora_ingreso: '' },
     evaluacion: { motivo: '', enfermedad_actual: '', examen_fisico: '' },
-    diagnostico: '', // Manejo simple de un diagnóstico principal para la UI
+    diagnostico: '',
     tratamiento: '',
     clasificacion: 'Consulta',
-    personal_ids: [] as number[] // IDs seleccionados
+    personal_ids: [] as number[],
+    tipo_atencion_id: '' as number | ''
   };
 
   const [form, setForm] = useState(initialFormState);
@@ -87,9 +121,11 @@ const SaludModule = () => {
   const fetchData = async (page = saludPage) => {
     setLoading(true);
     try {
-        const [resAtenciones, resPersonal] = await Promise.all([
+        const [resAtenciones, resPersonal, resTipos, resEstab] = await Promise.all([
             fetch(`${API_URL}/salud/atenciones?page=${page}&limit=20`),
-            fetch(`${API_URL}/salud/personal`)
+            fetch(`${API_URL}/salud/personal`),
+            fetch(`${API_URL}/salud/tipos-atencion`),
+            fetch(`${API_URL}/salud/establecimientos`)
         ]);
         if (resAtenciones.ok) {
             const json = await resAtenciones.json();
@@ -97,6 +133,14 @@ const SaludModule = () => {
             if (json.pagination) setSaludPagination(json.pagination);
         }
         if (resPersonal.ok) setPersonalList(await resPersonal.json());
+        if (resTipos.ok) {
+            const tipos = await resTipos.json();
+            setTiposAtencion(tipos.filter((t: TipoAtencion) => t.estado === 1));
+        }
+        if (resEstab.ok) {
+            const estabs = await resEstab.json();
+            setEstablecimientos(estabs.filter((e: Establecimiento & { estado: number }) => e.estado === 1));
+        }
     } catch (error) {
         console.error("Error cargando datos de salud:", error);
     }
@@ -117,11 +161,10 @@ const SaludModule = () => {
             const data = await res.json();
             setForm(prev => ({
                 ...prev,
-                paciente: { ...prev.paciente, ...data, id: data.id } // Guardamos ID si existe
+                paciente: { ...prev.paciente, ...data, id: data.id }
             }));
             showNotification('Paciente encontrado.', 'success');
         } else {
-            // Limpiar datos excepto DNI para ingreso manual
             setForm(prev => ({
                 ...prev,
                 paciente: { ...initialFormState.paciente, dni: prev.paciente.dni }
@@ -143,13 +186,11 @@ const SaludModule = () => {
     }
   };
 
-  // Función auxiliar para obtener el ID del personal sin importar cómo venga de la BD
   const getPersonalId = (p: Personal) => p.id || p.id_personal || 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      
-      // Estructurar los datos para el backend
+
       const payload = {
           paciente: form.paciente,
           atencion: form.atencion,
@@ -158,7 +199,8 @@ const SaludModule = () => {
           diagnosticos: [{ descripcion: form.diagnostico }],
           tratamiento: { descripcion: form.tratamiento },
           clasificacion: { tipo: form.clasificacion },
-          personal_ids: form.personal_ids
+          personal_ids: form.personal_ids,
+          tipo_atencion_id: form.tipo_atencion_id || null
       };
 
       try {
@@ -190,6 +232,42 @@ const SaludModule = () => {
     }
   };
 
+  // --- TRASLADO ---
+  const openTrasladoModal = async (atencionId: number, atencionNumero: string) => {
+    setTrasladoModal({ atencionId, atencionNumero });
+    setTrasladoForm({ establecimiento_id: '', hora_traslado: '', observaciones: '' });
+    try {
+      const res = await fetch(`${API_URL}/salud/traslados/atencion/${atencionId}`);
+      if (res.ok) setHistorialTraslados(await res.json());
+    } catch (err) { console.error(err); }
+  };
+
+  const handleTrasladoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trasladoModal) return;
+    try {
+      const res = await fetch(`${API_URL}/salud/traslados`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          atencion_id: trasladoModal.atencionId,
+          establecimiento_id: parseInt(trasladoForm.establecimiento_id),
+          hora_traslado: trasladoForm.hora_traslado || null,
+          observaciones: trasladoForm.observaciones || null
+        })
+      });
+      if (!res.ok) throw new Error('Error al registrar traslado');
+      showNotification('Traslado registrado correctamente.', 'success');
+      setTrasladoForm({ establecimiento_id: '', hora_traslado: '', observaciones: '' });
+      // Refrescar historial
+      const resH = await fetch(`${API_URL}/salud/traslados/atencion/${trasladoModal.atencionId}`);
+      if (resH.ok) setHistorialTraslados(await resH.json());
+      fetchData();
+    } catch (err: any) {
+      showNotification(err.message, 'error');
+    }
+  };
+
   const exportarHojaAtencionPDF = async (id: number) => {
     try {
       const res = await fetch(`${API_URL}/salud/atenciones/${id}`);
@@ -203,11 +281,8 @@ const SaludModule = () => {
       const mr = 200;
       const W = mr - ml;
 
-      // Fondo blanco
       doc.setFillColor(255, 255, 255);
       doc.rect(0, 0, pageW, 297, 'F');
-
-      // Borde principal
       doc.setDrawColor(0);
       doc.setLineWidth(0.6);
       doc.rect(ml, 8, W, 278, 'S');
@@ -217,8 +292,6 @@ const SaludModule = () => {
       const IW = R - L;
       let y = 14;
 
-      // ============ HEADER ============
-      // Logo Miraflores
       doc.setDrawColor(0);
       doc.setLineWidth(0.4);
       doc.circle(L + 10, y + 8, 7, 'S');
@@ -230,7 +303,6 @@ const SaludModule = () => {
       doc.setFont('helvetica', 'italic');
       doc.text('se vive mejor', L + 10, y + 9, { align: 'center' });
 
-      // Titulo institucional
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
       doc.setTextColor(0);
@@ -238,7 +310,6 @@ const SaludModule = () => {
       doc.setFontSize(6.5);
       doc.text('GERENCIA DE SEGURIDAD CIUDADANA', L + 22, y + 6);
 
-      // N° y sufijo
       doc.setFontSize(10);
       doc.text('N\u00b0', R - 45, y + 3);
       doc.setFontSize(14);
@@ -247,8 +318,6 @@ const SaludModule = () => {
       doc.text('-A', R - 5, y + 3);
 
       y += 14;
-
-      // HOJA DE ATENCION titulo
       doc.setDrawColor(0);
       doc.setLineWidth(0.3);
       doc.line(L, y, R, y);
@@ -258,7 +327,6 @@ const SaludModule = () => {
       doc.text('HOJA DE ATENCIÓN', L + IW / 2, y, { align: 'center' });
       y += 3;
 
-      // Fecha, Hora inicio, Hora fin a la derecha
       const fechaStr = det.fecha ? new Date(det.fecha).toLocaleDateString('es-PE') : '';
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
@@ -267,14 +335,20 @@ const SaludModule = () => {
       doc.text(`Hora Inicio: ${det.hora_inicio || ''}     Hora Term: ${det.hora_fin || ''}`, R - 60, y);
       y += 4;
 
+      // Tipo de atención
+      if (det.tipo_atencion) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.text(`Tipo de Atención: ${det.tipo_atencion}`, L, y);
+        y += 4;
+      }
+
       doc.setDrawColor(0);
       doc.setLineWidth(0.3);
       doc.line(L, y, R, y);
       y += 1;
 
-      // ============ HELPERS ============
       const lh = 5.5;
-
       const field = (label: string, val: string, x: number, yy: number, endX: number) => {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(6.5);
@@ -288,32 +362,24 @@ const SaludModule = () => {
         doc.setLineWidth(0.15);
         doc.line(x + lw, yy + 0.8, endX, yy + 0.8);
       };
-
       const fieldLabel = (label: string, x: number, yy: number) => {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(5.5);
         doc.setTextColor(100);
         doc.text(label, x, yy);
       };
-
       const check = (label: string, checked: boolean, x: number, yy: number): number => {
         doc.setDrawColor(0);
         doc.setLineWidth(0.3);
         doc.rect(x, yy - 2.8, 3, 3, 'S');
-        if (checked) {
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(7);
-          doc.text('X', x + 0.4, yy);
-        }
+        if (checked) { doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.text('X', x + 0.4, yy); }
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(6);
         doc.text(label, x + 4, yy);
         return x + 5 + doc.getTextWidth(label) + 3;
       };
 
-      // ============ DATOS DEL PACIENTE ============
       y += 5;
-      // Apellidos y Nombres en una fila con sublabels
       const col1 = L;
       const col2 = L + IW * 0.33;
       const col3 = L + IW * 0.66;
@@ -327,23 +393,16 @@ const SaludModule = () => {
       fieldLabel('NOMBRES', col3, y);
       y += lh;
 
-      // Dirección, Edad, Sexo
       field('', det.direccion || '', col1, y, L + IW * 0.55);
-      // Edad box
       const edadX = L + IW * 0.58;
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.3);
+      doc.setDrawColor(0); doc.setLineWidth(0.3);
       doc.rect(edadX, y - 3.5, 12, 4.5, 'S');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(5.5);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5);
       doc.text('EDAD', edadX + 0.5, y - 0.5);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
       doc.text(String(det.edad || ''), edadX + 6, y);
-      // Sexo
       const sexoX = edadX + 16;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(5.5);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5);
       doc.text('SEXO', sexoX, y - 0.5);
       let sxc = sexoX + 10;
       sxc = check('M', det.sexo === 'M', sxc, y);
@@ -352,7 +411,6 @@ const SaludModule = () => {
       fieldLabel('DIRECCIÓN DE LA OCURRENCIA', col1, y);
       y += lh;
 
-      // Operador, Teléfono, N° de Caso
       field('', det.telefono || '', col1, y, col2 - 3);
       field('', det.operador || '', col2 + 15, y, col3 + 10);
       y += 3;
@@ -361,7 +419,6 @@ const SaludModule = () => {
       fieldLabel('N° DE CASO', col3 + 15, y);
       y += lh;
 
-      // Doc Identidad, Motivo de llamada, Hora ingreso
       field('Doc. Identidad (DNI)', det.dni || '', col1, y, col2 + 10);
       field('Motivo de la llamada', det.motivo || '', col2 + 15, y, R - 25);
       field('Hora ingreso', det.hora_ingreso || det.hora_llamada || '', R - 24, y, R);
@@ -371,23 +428,12 @@ const SaludModule = () => {
       fieldLabel('Hora de ingreso de la llamada', R - 40, y);
       y += lh + 2;
 
-      // Separador
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.3);
-      doc.line(L, y, R, y);
-      y += 4;
+      doc.setDrawColor(0); doc.setLineWidth(0.3); doc.line(L, y, R, y); y += 4;
 
-      // ============ ANTECEDENTES PERSONALES ============
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
-      doc.text('ANTECEDENTES PERSONALES', L, y);
-      y += lh;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
+      doc.text('ANTECEDENTES PERSONALES', L, y); y += lh;
+      field('ALERGIAS A:', '', L, y, R); y += lh;
 
-      // Alergias
-      field('ALERGIAS A:', '', L, y, R);
-      y += lh;
-
-      // Checkboxes de antecedentes
       const antecedentes = ['Patológico', 'HTA', 'DM', 'DCV', 'Cardiopatía', 'Migraña', 'Gastritis', 'Asma', 'Dislip.', 'Psiq.', 'HIV', 'FUR'];
       let ax = L;
       antecedentes.forEach(a => {
@@ -395,210 +441,122 @@ const SaludModule = () => {
         ax = check(a, false, ax, y);
       });
       y += lh;
+      field('GESTA', '', L, y, L + 30); y += lh;
+      field('OTROS:', '', L, y, R); y += lh + 2;
 
-      field('GESTA', '', L, y, L + 30);
-      y += lh;
-      field('OTROS:', '', L, y, R);
-      y += lh + 2;
+      doc.setDrawColor(0); doc.setLineWidth(0.3); doc.line(L, y, R, y); y += 4;
 
-      // Separador
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.3);
-      doc.line(L, y, R, y);
-      y += 4;
-
-      // ============ EVALUACIÓN MÉDICA ============
-      // Tratamiento Actual
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
       doc.text('Tratamiento Actual:', L, y);
-      doc.text('T.E', L + 50, y);
-      doc.text('F.I', L + 70, y);
-      doc.text('CURSO', L + 90, y);
-      y += lh;
+      doc.text('T.E', L + 50, y); doc.text('F.I', L + 70, y); doc.text('CURSO', L + 90, y); y += lh;
 
-      // Enfermedad Actual
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.5);
-      doc.text('Enfermedad actual:', L, y);
-      y += 4;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
+      doc.text('Enfermedad actual:', L, y); y += 4;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
       const enfLines = doc.splitTextToSize(det.enfermedad_actual || '', IW - 5);
-      // Líneas horizontales
-      doc.setDrawColor(180);
-      doc.setLineWidth(0.1);
+      doc.setDrawColor(180); doc.setLineWidth(0.1);
       const enfNumLines = Math.max(enfLines.length, 3);
-      for (let i = 0; i < enfNumLines; i++) {
-        doc.line(L, y + (i * 5) + 2, R, y + (i * 5) + 2);
-      }
+      for (let i = 0; i < enfNumLines; i++) doc.line(L, y + (i * 5) + 2, R, y + (i * 5) + 2);
       doc.setTextColor(0);
-      enfLines.forEach((line: string, i: number) => {
-        doc.text(line, L + 1, y + (i * 5) + 1);
-      });
+      enfLines.forEach((line: string, i: number) => doc.text(line, L + 1, y + (i * 5) + 1));
       y += enfNumLines * 5 + 3;
 
-      // Separador
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.3);
-      doc.line(L, y, R, y);
-      y += 4;
+      doc.setDrawColor(0); doc.setLineWidth(0.3); doc.line(L, y, R, y); y += 4;
 
-      // ============ EXAMEN FISICO ============
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
       doc.text('EXAMEN FISICO', L, y);
-      doc.text('P.A.', L + 30, y);
-      doc.text('F.C.', L + 45, y);
-      doc.text('F.R.', L + 60, y);
-      doc.text('SAT.O2', L + 75, y);
-      doc.text('T\u00b0', L + 95, y);
-      doc.text('GLASGOW', L + 110, y);
-      y += lh;
+      doc.text('P.A.', L + 30, y); doc.text('F.C.', L + 45, y); doc.text('F.R.', L + 60, y);
+      doc.text('SAT.O2', L + 75, y); doc.text('T\u00b0', L + 95, y); doc.text('GLASGOW', L + 110, y); y += lh;
 
-      // Examen físico texto
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
       const exLines = doc.splitTextToSize(det.examen_fisico || '', IW - 5);
       const exNumLines = Math.max(exLines.length, 2);
-      doc.setDrawColor(180);
-      doc.setLineWidth(0.1);
-      for (let i = 0; i < exNumLines; i++) {
-        doc.line(L, y + (i * 5) + 2, R, y + (i * 5) + 2);
-      }
-      exLines.forEach((line: string, i: number) => {
-        doc.text(line, L + 1, y + (i * 5) + 1);
-      });
+      doc.setDrawColor(180); doc.setLineWidth(0.1);
+      for (let i = 0; i < exNumLines; i++) doc.line(L, y + (i * 5) + 2, R, y + (i * 5) + 2);
+      exLines.forEach((line: string, i: number) => doc.text(line, L + 1, y + (i * 5) + 1));
       y += exNumLines * 5 + 3;
 
-      // Separador
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.3);
-      doc.line(L, y, R, y);
-      y += 4;
+      doc.setDrawColor(0); doc.setLineWidth(0.3); doc.line(L, y, R, y); y += 4;
 
-      // ============ EVOLUCIÓN / OBSERVACIONES ============
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
-      doc.text('Evolución / Observaciones:', L, y);
-      y += lh;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
+      doc.text('Evolución / Observaciones:', L, y); y += lh;
 
-      // Diagnostico e Impresión Diagnóstica
       const halfW = IW / 2;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6);
-      doc.text('CIE .10', L, y);
-      doc.text('Impresión Diagnóstica:', L + 20, y);
-      doc.text('Terapéutica:', L + halfW + 5, y);
-      doc.text('Insumo:', R - 30, y);
-      y += 4;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6);
+      doc.text('CIE .10', L, y); doc.text('Impresión Diagnóstica:', L + 20, y);
+      doc.text('Terapéutica:', L + halfW + 5, y); doc.text('Insumo:', R - 30, y); y += 4;
 
-      // Diagnósticos
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      if (det.diagnosticos && det.diagnosticos.length > 0) {
-        det.diagnosticos.forEach((d, i) => {
-          doc.text(`- ${d.descripcion}`, L + 20, y + (i * 4));
-        });
-      }
-      // Tratamientos
-      if (det.tratamientos && det.tratamientos.length > 0) {
-        det.tratamientos.forEach((t, i) => {
-          doc.text(`- ${t.descripcion}`, L + halfW + 5, y + (i * 4));
-        });
-      }
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+      if (det.diagnosticos && det.diagnosticos.length > 0)
+        det.diagnosticos.forEach((d, i) => doc.text(`- ${d.descripcion}`, L + 20, y + (i * 4)));
+      if (det.tratamientos && det.tratamientos.length > 0)
+        det.tratamientos.forEach((t, i) => doc.text(`- ${t.descripcion}`, L + halfW + 5, y + (i * 4)));
       const diagLines = Math.max((det.diagnosticos?.length || 1), (det.tratamientos?.length || 1));
       y += diagLines * 4 + 4;
 
-      // Separador
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.3);
-      doc.line(L, y, R, y);
-      y += 4;
+      doc.setDrawColor(0); doc.setLineWidth(0.3); doc.line(L, y, R, y); y += 4;
 
-      // ============ CLASIFICACION ============
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
       doc.text('Clasificación de atención:', L, y);
       let clx = L + 42;
       const clasificaciones = ['Consulta', 'Emergencias', 'Urgencia', 'Traslado', 'Fallecido'];
-      // Map to match stored values
       const clasMap: Record<string, string> = { 'Emergencia': 'Emergencias' };
       clasificaciones.forEach(c => {
         const storedVal = Object.entries(clasMap).find(([, v]) => v === c)?.[0] || c;
         clx = check(c, det.clasificacion === storedVal || det.clasificacion === c, clx, y);
       });
 
-      // Destino
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.5);
-      y += lh;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); y += lh;
+      // Destino = establecimiento de traslado
+      const destino = det.traslados && det.traslados.length > 0 ? det.traslados[0].establecimiento_nombre : '';
       doc.text('Destino:', R - 40, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(destino, R - 30, y);
       doc.line(R - 30, y + 0.8, R, y + 0.8);
       y += lh + 2;
 
-      // Separador
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.3);
-      doc.line(L, y, R, y);
-      y += 4;
+      doc.setDrawColor(0); doc.setLineWidth(0.3); doc.line(L, y, R, y); y += 4;
 
-      // ============ FIRMAS ============
       const third = IW / 3;
       const fc1 = L + third / 2;
       const fc2 = L + third + third / 2;
       const fc3 = L + 2 * third + third / 2;
-
-      // Líneas de firma
       const fLineW = 30;
       y += 12;
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.3);
+      doc.setDrawColor(0); doc.setLineWidth(0.3);
       doc.line(fc1 - fLineW / 2, y, fc1 + fLineW / 2, y);
       doc.line(fc2 - fLineW / 2, y, fc2 + fLineW / 2, y);
       doc.line(fc3 - fLineW / 2, y, fc3 + fLineW / 2, y);
       y += 3;
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(6);
       doc.text('Firma', fc1, y, { align: 'center' });
       doc.text('Firma', fc2, y, { align: 'center' });
       doc.text('Firma', fc3, y, { align: 'center' });
       y += 4;
 
-      // Nombres del personal
       if (det.personal && det.personal.length > 0) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(5.5);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5);
         det.personal.forEach((p, i) => {
           const center = i === 0 ? fc1 : i === 1 ? fc2 : fc3;
-          if (i < 3) {
-            doc.text(`Nombre: ${p.nombre}`, center - fLineW / 2, y);
-          }
+          if (i < 3) doc.text(`Nombre: ${p.nombre}`, center - fLineW / 2, y);
         });
       } else {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(6);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(6);
         doc.text('Nombre:', fc1 - fLineW / 2, y);
         doc.text('Nombre:', fc2 - fLineW / 2, y);
         doc.text('Nombre:', fc3 - fLineW / 2, y);
       }
       y += 4;
 
-      // Labels
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(5.5);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(5.5);
       doc.text('Paciente o familiar: Responsable', fc1, y, { align: 'center' });
       doc.text('Paramédicos Responsable', fc2, y, { align: 'center' });
       doc.text('Recepcionado Por:', fc3, y, { align: 'center' });
 
-      // Footer
-      doc.setFont('helvetica', 'italic');
-      doc.setFontSize(5);
-      doc.setTextColor(120);
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(5); doc.setTextColor(120);
       doc.text(`Documento generado digitalmente - ${new Date().toLocaleString('es-PE')}`, pageW / 2, 287, { align: 'center' });
 
-      // Vista previa
       const pdfBlob = doc.output('blob');
       const url = URL.createObjectURL(pdfBlob);
       window.open(url, '_blank');
@@ -610,7 +568,7 @@ const SaludModule = () => {
   return (
     <div className="crud-module">
       <Notification notification={notification} onClose={hideNotification} />
-      
+
       <div className="crud-header">
         <h2>Área de Salud: Registro de Atenciones</h2>
         <button className="login-button" onClick={() => setIsModalOpen(true)}>+ Nueva Atención</button>
@@ -618,7 +576,7 @@ const SaludModule = () => {
 
       <div className="table-responsive">
         <table className="crud-table">
-          <thead><tr><th>Fecha</th><th>Hora</th><th>Paciente</th><th>DNI</th><th>Clasificación</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Hora</th><th>Paciente</th><th>DNI</th><th>Tipo Atención</th><th>Clasificación</th><th>Traslado</th><th>Acciones</th></tr></thead>
           <tbody>
             {atenciones.map(a => (
               <tr key={a.id}>
@@ -626,13 +584,18 @@ const SaludModule = () => {
                 <td>{a.hora_inicio}</td>
                 <td>{a.nombres} {a.apellido_paterno}</td>
                 <td>{a.dni}</td>
+                <td>{a.tipo_atencion || <span style={{color:'var(--text-muted)'}}>-</span>}</td>
                 <td><span className="badge status-active">{a.clasificacion || 'N/A'}</span></td>
-                <td>
+                <td>{a.establecimiento_traslado || <span style={{color:'var(--text-muted)'}}>Sin traslado</span>}</td>
+                <td style={{display:'flex', gap:'4px'}}>
                   <button className="action-btn" onClick={() => exportarHojaAtencionPDF(a.id)} title="Ver PDF">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
                   </button>
                   <button className="action-btn" onClick={() => handleView(a.id)} title="Ver Detalle">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  </button>
+                  <button className="action-btn" onClick={() => openTrasladoModal(a.id, a.numero)} title="Asignar Hospital/Clínica" style={{color:'#2196F3'}}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
                   </button>
                 </td>
               </tr>
@@ -651,6 +614,7 @@ const SaludModule = () => {
         </div>
       )}
 
+      {/* MODAL NUEVA ATENCIÓN */}
       {isModalOpen && createPortal(
         <div className="modal-overlay">
           <div className="modal-content" style={{maxWidth: '900px', maxHeight: '90vh', overflowY: 'auto'}}>
@@ -660,18 +624,18 @@ const SaludModule = () => {
             </div>
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
-                
+
                 {/* SECCIÓN PACIENTE */}
                 <h4>1. Datos del Paciente</h4>
                 <div className="crud-form salud-grid-3">
                     <div className="salud-search-box">
                         <div className="input-wrapper">
                             <label>DNI</label>
-                            <input 
-                                value={form.paciente.dni} 
-                                onChange={e => setForm({...form, paciente: {...form.paciente, dni: e.target.value}})} 
-                                onBlur={buscarPaciente} // Busca al salir del campo
-                                onKeyDown={handleKeyDown} // Busca al presionar Enter
+                            <input
+                                value={form.paciente.dni}
+                                onChange={e => setForm({...form, paciente: {...form.paciente, dni: e.target.value}})}
+                                onBlur={buscarPaciente}
+                                onKeyDown={handleKeyDown}
                                 placeholder="Ingrese DNI" required maxLength={8}
                             />
                         </div>
@@ -697,7 +661,16 @@ const SaludModule = () => {
                     <div><label>Fecha</label><input type="date" value={form.atencion.fecha} onChange={e => setForm({...form, atencion: {...form.atencion, fecha: e.target.value}})} required /></div>
                     <div><label>Hora Inicio</label><input type="time" value={form.atencion.hora_inicio} onChange={e => setForm({...form, atencion: {...form.atencion, hora_inicio: e.target.value}})} required /></div>
                     <div><label>Hora Fin</label><input type="time" value={form.atencion.hora_fin} onChange={e => setForm({...form, atencion: {...form.atencion, hora_fin: e.target.value}})} /></div>
-                    
+
+                    {/* TIPO DE ATENCIÓN - NUEVO */}
+                    <div>
+                        <label>Tipo de Atención</label>
+                        <select value={form.tipo_atencion_id} onChange={e => setForm({...form, tipo_atencion_id: e.target.value ? parseInt(e.target.value) : ''})}>
+                            <option value="">-- Seleccionar --</option>
+                            {tiposAtencion.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                        </select>
+                    </div>
+
                     <div className="full-width"><label>Dirección Ocurrencia</label><input value={form.ocurrencia.direccion} onChange={e => setForm({...form, ocurrencia: {...form.ocurrencia, direccion: e.target.value}})} placeholder="Lugar donde ocurrió el incidente" /></div>
                     <div><label>Teléfono</label><input value={form.ocurrencia.telefono} onChange={e => setForm({...form, ocurrencia: {...form.ocurrencia, telefono: e.target.value}})} /></div>
                     <div><label>Hora Llamada</label><input type="time" value={form.ocurrencia.hora_llamada} onChange={e => setForm({...form, ocurrencia: {...form.ocurrencia, hora_llamada: e.target.value}})} /></div>
@@ -709,10 +682,8 @@ const SaludModule = () => {
                 <div className="crud-form">
                     <label>Motivo de Consulta</label>
                     <input value={form.evaluacion.motivo} onChange={e => setForm({...form, evaluacion: {...form.evaluacion, motivo: e.target.value}})} required placeholder="Ej: Dolor abdominal, accidente de tránsito..." />
-                    
                     <label>Enfermedad Actual / Relato</label>
                     <textarea value={form.evaluacion.enfermedad_actual} onChange={e => setForm({...form, evaluacion: {...form.evaluacion, enfermedad_actual: e.target.value}})} rows={2}></textarea>
-                    
                     <label>Examen Físico</label>
                     <textarea value={form.evaluacion.examen_fisico} onChange={e => setForm({...form, evaluacion: {...form.evaluacion, examen_fisico: e.target.value}})} rows={2} placeholder="PA, FC, FR, SatO2, T°, etc."></textarea>
                 </div>
@@ -785,6 +756,7 @@ const SaludModule = () => {
                   <p><strong>Hora:</strong> {viewDetails.hora_inicio} - {viewDetails.hora_fin || 'En curso'}</p>
                   <p><strong>Lugar:</strong> {viewDetails.direccion || '-'}</p>
                   <p><strong>Teléfono:</strong> {viewDetails.telefono || '-'}</p>
+                  {viewDetails.tipo_atencion && <p><strong>Tipo Atención:</strong> <span className="badge status-active">{viewDetails.tipo_atencion}</span></p>}
                 </div>
               </div>
 
@@ -819,9 +791,99 @@ const SaludModule = () => {
                   <li key={i} className="badge status-inactive">{p.nombre} ({p.rol})</li>
                 ))}
               </ul>
+
+              {/* HISTORIAL DE TRASLADOS */}
+              {viewDetails.traslados && viewDetails.traslados.length > 0 && (
+                <>
+                  <h4>Historial de Traslados</h4>
+                  <div className="table-responsive">
+                    <table className="crud-table" style={{marginBottom: 0}}>
+                      <thead><tr><th>Establecimiento</th><th>Tipo</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Observaciones</th></tr></thead>
+                      <tbody>
+                        {viewDetails.traslados.map((t, i) => (
+                          <tr key={i}>
+                            <td>{t.establecimiento_nombre}</td>
+                            <td><span className="badge status-active">{t.establecimiento_tipo}</span></td>
+                            <td>{new Date(t.fecha_traslado).toLocaleDateString()}</td>
+                            <td>{t.hora_traslado || '-'}</td>
+                            <td><span className="badge status-active">{t.estado}</span></td>
+                            <td>{t.observaciones || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
             <div className="modal-footer">
               <button className="login-button" onClick={() => setViewDetails(null)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {/* MODAL DE TRASLADO / ASIGNACIÓN A HOSPITAL */}
+      {trasladoModal && createPortal(
+        <div className="modal-overlay" onClick={() => setTrasladoModal(null)}>
+          <div className="modal-content" style={{maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto'}} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Asignar Hospital/Clínica - Atención {trasladoModal.atencionNumero}</h3>
+              <button className="modal-close" onClick={() => setTrasladoModal(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handleTrasladoSubmit}>
+                <div className="crud-form salud-grid-2">
+                  <div>
+                    <label>Establecimiento de Salud</label>
+                    <select value={trasladoForm.establecimiento_id} onChange={e => setTrasladoForm({...trasladoForm, establecimiento_id: e.target.value})} required>
+                      <option value="">-- Seleccionar Hospital/Clínica --</option>
+                      {establecimientos.map(e => (
+                        <option key={e.id} value={e.id}>{e.nombre} ({e.tipo})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Hora de Traslado</label>
+                    <input type="time" value={trasladoForm.hora_traslado} onChange={e => setTrasladoForm({...trasladoForm, hora_traslado: e.target.value})} />
+                  </div>
+                  <div className="full-width">
+                    <label>Observaciones</label>
+                    <textarea value={trasladoForm.observaciones} onChange={e => setTrasladoForm({...trasladoForm, observaciones: e.target.value})} rows={2} placeholder="Observaciones del traslado..."></textarea>
+                  </div>
+                </div>
+                <div style={{marginTop: '10px'}}>
+                  <button type="submit" className="login-button">Registrar Traslado</button>
+                </div>
+              </form>
+
+              {/* Historial de traslados de esta atención */}
+              {historialTraslados.length > 0 && (
+                <>
+                  <h4 style={{marginTop: '20px'}}>Historial de Asignaciones</h4>
+                  <div className="table-responsive">
+                    <table className="crud-table" style={{marginBottom: 0}}>
+                      <thead><tr><th>Establecimiento</th><th>Tipo</th><th>Dirección</th><th>Fecha</th><th>Hora</th><th>Estado</th><th>Observaciones</th></tr></thead>
+                      <tbody>
+                        {historialTraslados.map(t => (
+                          <tr key={t.id}>
+                            <td style={{fontWeight: 600}}>{t.establecimiento_nombre}</td>
+                            <td><span className="badge status-active">{t.establecimiento_tipo}</span></td>
+                            <td>{t.establecimiento_direccion || '-'}</td>
+                            <td>{new Date(t.fecha_traslado).toLocaleString()}</td>
+                            <td>{t.hora_traslado || '-'}</td>
+                            <td><span className="badge status-active">{t.estado}</span></td>
+                            <td>{t.observaciones || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={() => setTrasladoModal(null)}>Cerrar</button>
             </div>
           </div>
         </div>
