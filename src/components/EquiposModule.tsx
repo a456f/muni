@@ -89,7 +89,7 @@ const EquiposModule = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [revisiones, setRevisiones] = useState<Revision[]>([]);
     const [revEquipo, setRevEquipo] = useState<Equipo | null>(null);
-    const [fotoModal, setFotoModal] = useState<string | null>(null);
+    const [fotoGaleria, setFotoGaleria] = useState<{ fotos: string[]; index: number } | null>(null);
     const { notification, showNotification, hideNotification } = useNotification();
     const [error, setError] = useState<string | null>(null);
     const [resumen, setResumen] = useState<ResumenItem[]>([]);
@@ -492,48 +492,37 @@ const EquiposModule = () => {
                                             border: '1px solid var(--border-color, #e2e8f0)'
                                         }}>
                                             {/* Fotos thumbnails */}
-                                            {rev.fotos && rev.fotos.length > 0 ? (
-                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', flexShrink: 0 }}>
-                                                    {rev.fotos.map((foto, idx) => (
-                                                        <div
-                                                            key={foto.id || idx}
-                                                            onClick={() => setFotoModal(`${API_URL.replace(/\/api\/?$/, '')}/${foto.ruta}`)}
-                                                            style={{
-                                                                width: 70, height: 70, borderRadius: '8px', overflow: 'hidden',
-                                                                cursor: 'pointer', border: '1px solid var(--border-color, #e2e8f0)'
-                                                            }}
-                                                        >
-                                                            <img
-                                                                src={`${API_URL.replace(/\/api\/?$/, '')}/${foto.ruta}`}
-                                                                alt={`Foto ${idx + 1}`}
-                                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                            />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : rev.foto_ruta ? (
-                                                <div
-                                                    onClick={() => setFotoModal(`${API_URL.replace(/\/api\/?$/, '')}/${rev.foto_ruta}`)}
-                                                    style={{
-                                                        width: 70, height: 70, borderRadius: '8px', overflow: 'hidden',
-                                                        cursor: 'pointer', flexShrink: 0, border: '1px solid var(--border-color, #e2e8f0)'
-                                                    }}
-                                                >
-                                                    <img
-                                                        src={`${API_URL.replace(/\/api\/?$/, '')}/${rev.foto_ruta}`}
-                                                        alt="Revisión"
-                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <div style={{
-                                                    width: 70, height: 70, borderRadius: '8px', flexShrink: 0,
-                                                    background: 'var(--bg-hover, #e2e8f0)', display: 'flex',
-                                                    alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted, #94a3b8)'
-                                                }}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                </div>
-                                            )}
+                                            {(() => {
+                                                const baseUrl = API_URL.replace(/\/api\/?$/, '');
+                                                const allFotos = rev.fotos && rev.fotos.length > 0
+                                                    ? rev.fotos.map(f => `${baseUrl}/${f.ruta}`)
+                                                    : rev.foto_ruta ? [`${baseUrl}/${rev.foto_ruta}`] : [];
+                                                if (allFotos.length > 0) return (
+                                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', flexShrink: 0 }}>
+                                                        {allFotos.map((url, idx) => (
+                                                            <div
+                                                                key={idx}
+                                                                onClick={() => setFotoGaleria({ fotos: allFotos, index: idx })}
+                                                                style={{
+                                                                    width: 70, height: 70, borderRadius: '8px', overflow: 'hidden',
+                                                                    cursor: 'pointer', border: '1px solid var(--border-color, #e2e8f0)'
+                                                                }}
+                                                            >
+                                                                <img src={url} alt={`Foto ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                                return (
+                                                    <div style={{
+                                                        width: 70, height: 70, borderRadius: '8px', flexShrink: 0,
+                                                        background: 'var(--bg-hover, #e2e8f0)', display: 'flex',
+                                                        alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted, #94a3b8)'
+                                                    }}>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                                    </div>
+                                                );
+                                            })()}
 
                                             {/* Info */}
                                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -581,17 +570,84 @@ const EquiposModule = () => {
                 </div>
             , document.body)}
 
-            {/* Modal Foto ampliada */}
-            {fotoModal && createPortal(
-                <div className="modal-overlay" onClick={() => setFotoModal(null)} style={{ zIndex: 10001 }}>
-                    <div style={{ maxWidth: '90vw', maxHeight: '90vh', position: 'relative' }} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setFotoModal(null)} style={{
-                            position: 'absolute', top: -12, right: -12, width: 30, height: 30,
+            {/* Modal Galería de fotos */}
+            {fotoGaleria && createPortal(
+                <div className="modal-overlay" onClick={() => setFotoGaleria(null)} style={{ zIndex: 10001, background: 'rgba(0,0,0,0.85)' }}>
+                    <div style={{ maxWidth: '95vw', maxHeight: '95vh', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }} onClick={e => e.stopPropagation()}>
+                        {/* Cerrar */}
+                        <button onClick={() => setFotoGaleria(null)} style={{
+                            position: 'absolute', top: -15, right: -15, width: 36, height: 36,
                             borderRadius: '50%', background: '#ef4444', color: '#fff', border: 'none',
-                            cursor: 'pointer', fontWeight: 700, fontSize: '1rem', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center', zIndex: 1
+                            cursor: 'pointer', fontWeight: 700, fontSize: '1.2rem', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', zIndex: 2
                         }}>×</button>
-                        <img src={fotoModal} alt="Foto revisión" style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: '10px', objectFit: 'contain' }} />
+
+                        {/* Contador */}
+                        <div style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 600 }}>
+                            {fotoGaleria.index + 1} / {fotoGaleria.fotos.length}
+                        </div>
+
+                        {/* Imagen */}
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {/* Flecha izquierda */}
+                            {fotoGaleria.fotos.length > 1 && (
+                                <button onClick={() => setFotoGaleria(prev => prev ? { ...prev, index: (prev.index - 1 + prev.fotos.length) % prev.fotos.length } : null)} style={{
+                                    width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.15)',
+                                    color: '#fff', border: 'none', cursor: 'pointer', fontSize: '1.5rem', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                }}>‹</button>
+                            )}
+
+                            <img
+                                src={fotoGaleria.fotos[fotoGaleria.index]}
+                                alt={`Foto ${fotoGaleria.index + 1}`}
+                                style={{ maxWidth: '80vw', maxHeight: '75vh', borderRadius: '10px', objectFit: 'contain' }}
+                            />
+
+                            {/* Flecha derecha */}
+                            {fotoGaleria.fotos.length > 1 && (
+                                <button onClick={() => setFotoGaleria(prev => prev ? { ...prev, index: (prev.index + 1) % prev.fotos.length } : null)} style={{
+                                    width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.15)',
+                                    color: '#fff', border: 'none', cursor: 'pointer', fontSize: '1.5rem', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                }}>›</button>
+                            )}
+                        </div>
+
+                        {/* Botón descargar */}
+                        <a
+                            href={fotoGaleria.fotos[fotoGaleria.index]}
+                            download={`foto_revision_${fotoGaleria.index + 1}.jpg`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px',
+                                background: '#22c55e', color: '#fff', borderRadius: '8px', textDecoration: 'none',
+                                fontWeight: 600, fontSize: '0.9rem'
+                            }}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Descargar
+                        </a>
+
+                        {/* Thumbnails de navegación */}
+                        {fotoGaleria.fotos.length > 1 && (
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                {fotoGaleria.fotos.map((url, idx) => (
+                                    <div
+                                        key={idx}
+                                        onClick={() => setFotoGaleria(prev => prev ? { ...prev, index: idx } : null)}
+                                        style={{
+                                            width: 50, height: 50, borderRadius: '6px', overflow: 'hidden',
+                                            cursor: 'pointer', border: idx === fotoGaleria.index ? '3px solid #22c55e' : '2px solid rgba(255,255,255,0.3)',
+                                            opacity: idx === fotoGaleria.index ? 1 : 0.6
+                                        }}
+                                    >
+                                        <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             , document.body)}
