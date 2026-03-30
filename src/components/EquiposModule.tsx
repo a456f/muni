@@ -30,6 +30,12 @@ interface Equipo {
   area_asignada: string | null;
 }
 
+interface FotoAlmacen {
+  id: number;
+  ruta: string;
+  fecha_subida: string;
+}
+
 interface Revision {
   id: number;
   equipo_id: number;
@@ -38,6 +44,7 @@ interface Revision {
   longitud: number | null;
   comentario: string | null;
   foto_ruta: string | null;
+  fotos: FotoAlmacen[];
   fecha_revision: string;
   nombre_revisor: string;
 }
@@ -138,8 +145,21 @@ const EquiposModule = () => {
         setRevEquipo(equipo);
         try {
             const res = await fetch(`${API_URL}/almacen/revisiones/${equipo.id}`);
-            if (res.ok) setRevisiones(await res.json());
-            else setRevisiones([]);
+            if (!res.ok) { setRevisiones([]); return; }
+            const revs: Revision[] = await res.json();
+
+            // Cargar fotos de cada revisión desde fotos_almacen
+            const revsConFotos = await Promise.all(revs.map(async (rev) => {
+                try {
+                    const fotosRes = await fetch(`${API_URL}/almacen/fotos/revision/${rev.id}`);
+                    const fotos = fotosRes.ok ? await fotosRes.json() : [];
+                    return { ...rev, fotos };
+                } catch {
+                    // Si falla, intentar con foto_ruta legacy
+                    return { ...rev, fotos: rev.foto_ruta ? [{ id: 0, ruta: rev.foto_ruta, fecha_subida: rev.fecha_revision }] : [] };
+                }
+            }));
+            setRevisiones(revsConFotos);
         } catch { setRevisiones([]); }
     };
 
@@ -471,12 +491,31 @@ const EquiposModule = () => {
                                             background: 'var(--bg-input, #f8fafc)', borderRadius: '10px',
                                             border: '1px solid var(--border-color, #e2e8f0)'
                                         }}>
-                                            {/* Foto thumbnail */}
-                                            {rev.foto_ruta ? (
+                                            {/* Fotos thumbnails */}
+                                            {rev.fotos && rev.fotos.length > 0 ? (
+                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', flexShrink: 0 }}>
+                                                    {rev.fotos.map((foto, idx) => (
+                                                        <div
+                                                            key={foto.id || idx}
+                                                            onClick={() => setFotoModal(`${API_URL.replace(/\/api\/?$/, '')}/${foto.ruta}`)}
+                                                            style={{
+                                                                width: 70, height: 70, borderRadius: '8px', overflow: 'hidden',
+                                                                cursor: 'pointer', border: '1px solid var(--border-color, #e2e8f0)'
+                                                            }}
+                                                        >
+                                                            <img
+                                                                src={`${API_URL.replace(/\/api\/?$/, '')}/${foto.ruta}`}
+                                                                alt={`Foto ${idx + 1}`}
+                                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : rev.foto_ruta ? (
                                                 <div
                                                     onClick={() => setFotoModal(`${API_URL.replace(/\/api\/?$/, '')}/${rev.foto_ruta}`)}
                                                     style={{
-                                                        width: 90, height: 90, borderRadius: '8px', overflow: 'hidden',
+                                                        width: 70, height: 70, borderRadius: '8px', overflow: 'hidden',
                                                         cursor: 'pointer', flexShrink: 0, border: '1px solid var(--border-color, #e2e8f0)'
                                                     }}
                                                 >
@@ -488,7 +527,7 @@ const EquiposModule = () => {
                                                 </div>
                                             ) : (
                                                 <div style={{
-                                                    width: 90, height: 90, borderRadius: '8px', flexShrink: 0,
+                                                    width: 70, height: 70, borderRadius: '8px', flexShrink: 0,
                                                     background: 'var(--bg-hover, #e2e8f0)', display: 'flex',
                                                     alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted, #94a3b8)'
                                                 }}>
