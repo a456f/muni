@@ -21,6 +21,7 @@ import TipoAtencionSaludModule from '../components/TipoAtencionSaludModule';
 import EstablecimientoSaludModule from '../components/EstablecimientoSaludModule';
 import SaludDashboard from '../components/SaludDashboard';
 import SupervisoresModule from '../components/SupervisoresModule';
+import CriminalidadModule from '../components/CriminalidadModule';
 import { API_URL, BASE_URL } from '../config/api';
 import { io } from 'socket.io-client';
 import '../styles/RealtimeNotification.css';
@@ -433,6 +434,8 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
         return <SaludDashboard />;
       case 'supervisores':
         return <SupervisoresModule />;
+      case 'criminalidad':
+        return <CriminalidadModule />;
       case 'geografia':
         return (
           <div>
@@ -517,6 +520,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
                 'salud-establecimientos': 'Salud - Establecimientos',
                 'salud-dashboard': 'Salud - Estadísticas',
                 supervisores: 'Supervisores',
+                criminalidad: 'Mapa de Criminalidad',
                 geografia: 'Geografía',
                 configuracion: 'Configuración'
               }[activeTab] || activeTab}
