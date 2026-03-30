@@ -20,13 +20,15 @@ const revisionStorage = multer.diskStorage({
 });
 const uploadRevision = multer({
     storage: revisionStorage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max por archivo
     fileFilter: (req, file, cb) => {
         const allowed = /jpeg|jpg|png|gif|webp/;
         const ext = allowed.test(path.extname(file.originalname).toLowerCase());
         cb(null, ext);
     }
 });
+// Subida múltiple: hasta 4 fotos por revisión/inconsistencia
+const uploadFotos = uploadRevision.array('fotos', 4);
 
 // --- 1. Endpoint de Login para la App de Almacén ---
 router.post('/login', async (req, res) => {
@@ -138,24 +140,35 @@ router.post('/escanear', async (req, res) => {
 });
 
 // --- 3. Registrar Revisión de Equipo (desde la app del almacenero) ---
-router.post('/revision', uploadRevision.single('foto'), async (req, res) => {
+router.post('/revision', uploadFotos, async (req, res) => {
     const { equipo_id, usuario_id, ubicacion, latitud, longitud, comentario } = req.body;
 
     if (!equipo_id || !usuario_id) {
         return res.status(400).json({ message: 'equipo_id y usuario_id son requeridos.' });
     }
 
+    const connection = await db.getConnection();
     try {
-        const fotoRuta = req.file ? req.file.path.replace(/\\/g, '/') : null;
+        await connection.beginTransaction();
 
-        const [result] = await db.query(
-            `INSERT INTO revisiones_equipo (equipo_id, usuario_id, ubicacion, latitud, longitud, comentario, foto_ruta)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [equipo_id, usuario_id, ubicacion || null, latitud || null, longitud || null, comentario || null, fotoRuta]
+        const [result] = await connection.query(
+            `INSERT INTO revisiones_equipo (equipo_id, usuario_id, ubicacion, latitud, longitud, comentario)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [equipo_id, usuario_id, ubicacion || null, latitud || null, longitud || null, comentario || null]
         );
+        const revId = result.insertId;
 
-        // Marcar equipo como VALIDADO al ser revisado
-        await db.query("UPDATE equipos SET validacion = 'VALIDADO' WHERE id = ?", [equipo_id]);
+        // Insertar cada foto en tabla separada
+        if (req.files && req.files.length > 0) {
+            const fotoValues = req.files.map(f => [revId, 'revision', f.path.replace(/\\/g, '/')]);
+            await connection.query(
+                `INSERT INTO fotos_almacen (referencia_id, tipo, ruta) VALUES ?`,
+                [fotoValues]
+            );
+        }
+
+        await connection.query("UPDATE equipos SET validacion = 'VALIDADO' WHERE id = ?", [equipo_id]);
+        await connection.commit();
 
         // Obtener nombre del equipo y revisor para la notificación
         const [[equipoInfo]] = await db.query(
@@ -165,8 +178,6 @@ router.post('/revision', uploadRevision.single('foto'), async (req, res) => {
             `SELECT CONCAT(p.nombres, ' ', p.apellidos) as nombre FROM usuario u
              JOIN personal p ON u.id_personal = p.id_personal WHERE u.id_usuario = ?`, [usuario_id]
         );
-
-        const revId = result.insertId;
 
         // Emitir notificación en tiempo real
         const io = req.app.get('io');
@@ -188,8 +199,11 @@ router.post('/revision', uploadRevision.single('foto'), async (req, res) => {
             id_revision: revId
         });
     } catch (err) {
+        await connection.rollback();
         console.error("Error al registrar revisión:", err);
         res.status(500).json({ error: err.message });
+    } finally {
+        connection.release();
     }
 });
 
@@ -268,21 +282,34 @@ router.get('/revisiones', async (req, res) => {
 });
 
 // --- 7. Registrar inconsistencia (equipo físico que no existe en la BD) ---
-router.post('/inconsistencia', uploadRevision.single('foto'), async (req, res) => {
+router.post('/inconsistencia', uploadFotos, async (req, res) => {
     const { usuario_id, codigo_encontrado, descripcion, motivo, ubicacion, latitud, longitud } = req.body;
 
     if (!usuario_id || !codigo_encontrado) {
         return res.status(400).json({ message: 'usuario_id y codigo_encontrado son requeridos.' });
     }
 
+    const connection = await db.getConnection();
     try {
-        const fotoRuta = req.file ? req.file.path.replace(/\\/g, '/') : null;
+        await connection.beginTransaction();
 
-        const [result] = await db.query(
-            `INSERT INTO inconsistencias_equipo (usuario_id, codigo_encontrado, descripcion, motivo, ubicacion, latitud, longitud, foto_ruta)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [usuario_id, codigo_encontrado, descripcion || null, motivo || null, ubicacion || null, latitud || null, longitud || null, fotoRuta]
+        const [result] = await connection.query(
+            `INSERT INTO inconsistencias_equipo (usuario_id, codigo_encontrado, descripcion, motivo, ubicacion, latitud, longitud)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [usuario_id, codigo_encontrado, descripcion || null, motivo || null, ubicacion || null, latitud || null, longitud || null]
         );
+        const incId = result.insertId;
+
+        // Insertar cada foto en tabla separada
+        if (req.files && req.files.length > 0) {
+            const fotoValues = req.files.map(f => [incId, 'inconsistencia', f.path.replace(/\\/g, '/')]);
+            await connection.query(
+                `INSERT INTO fotos_almacen (referencia_id, tipo, ruta) VALUES ?`,
+                [fotoValues]
+            );
+        }
+
+        await connection.commit();
 
         // Notificación en tiempo real al panel web
         const [[revisorInfo]] = await db.query(
@@ -293,7 +320,7 @@ router.post('/inconsistencia', uploadRevision.single('foto'), async (req, res) =
         const io = req.app.get('io');
         if (io) {
             io.emit('nueva_inconsistencia', {
-                id: result.insertId,
+                id: incId,
                 codigo: codigo_encontrado,
                 motivo: motivo || '',
                 revisor: revisorInfo?.nombre || 'Almacenero',
@@ -303,11 +330,14 @@ router.post('/inconsistencia', uploadRevision.single('foto'), async (req, res) =
 
         res.status(201).json({
             message: 'Inconsistencia registrada con éxito.',
-            id: result.insertId
+            id: incId
         });
     } catch (err) {
+        await connection.rollback();
         console.error("Error al registrar inconsistencia:", err);
         res.status(500).json({ error: err.message });
+    } finally {
+        connection.release();
     }
 });
 
@@ -449,6 +479,25 @@ router.get('/equipos', async (req, res) => {
         });
     } catch (err) {
         console.error("Error al listar equipos almacén:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- 12. Obtener fotos de una revisión o inconsistencia ---
+router.get('/fotos/:tipo/:referencia_id', async (req, res) => {
+    const { tipo, referencia_id } = req.params;
+
+    if (!['revision', 'inconsistencia'].includes(tipo)) {
+        return res.status(400).json({ message: 'Tipo debe ser "revision" o "inconsistencia".' });
+    }
+
+    try {
+        const [rows] = await db.query(
+            `SELECT id, ruta, fecha_subida FROM fotos_almacen WHERE referencia_id = ? AND tipo = ? ORDER BY id ASC`,
+            [referencia_id, tipo]
+        );
+        res.json(rows);
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
