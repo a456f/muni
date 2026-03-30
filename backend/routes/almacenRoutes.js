@@ -27,8 +27,8 @@ const uploadRevision = multer({
         cb(null, ext);
     }
 });
-// Subida múltiple: hasta 4 fotos por revisión/inconsistencia
-const uploadFotos = uploadRevision.array('fotos', 4);
+// Subida múltiple: hasta 5 fotos, acepta cualquier campo de imagen
+const uploadFotos = uploadRevision.any();
 
 // --- 1. Endpoint de Login para la App de Almacén ---
 router.post('/login', async (req, res) => {
@@ -159,8 +159,9 @@ router.post('/revision', uploadFotos, async (req, res) => {
         const revId = result.insertId;
 
         // Insertar cada foto en tabla separada
-        if (req.files && req.files.length > 0) {
-            const fotoValues = req.files.map(f => [revId, 'revision', f.path.replace(/\\/g, '/')]);
+        const archivos = req.files || [];
+        if (archivos.length > 0) {
+            const fotoValues = archivos.map(f => [revId, 'revision', f.path.replace(/\\/g, '/')]);
             await connection.query(
                 `INSERT INTO fotos_almacen (referencia_id, tipo, ruta) VALUES ?`,
                 [fotoValues]
@@ -301,8 +302,9 @@ router.post('/inconsistencia', uploadFotos, async (req, res) => {
         const incId = result.insertId;
 
         // Insertar cada foto en tabla separada
-        if (req.files && req.files.length > 0) {
-            const fotoValues = req.files.map(f => [incId, 'inconsistencia', f.path.replace(/\\/g, '/')]);
+        const archivos = req.files || [];
+        if (archivos.length > 0) {
+            const fotoValues = archivos.map(f => [incId, 'inconsistencia', f.path.replace(/\\/g, '/')]);
             await connection.query(
                 `INSERT INTO fotos_almacen (referencia_id, tipo, ruta) VALUES ?`,
                 [fotoValues]
