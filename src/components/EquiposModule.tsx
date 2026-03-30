@@ -90,6 +90,15 @@ const EquiposModule = () => {
     const [revisiones, setRevisiones] = useState<Revision[]>([]);
     const [revEquipo, setRevEquipo] = useState<Equipo | null>(null);
     const [fotoGaleria, setFotoGaleria] = useState<{ fotos: string[]; index: number } | null>(null);
+    const [zoom, setZoom] = useState(1);
+    const [rotation, setRotation] = useState(0);
+    const [imgPos, setImgPos] = useState({ x: 0, y: 0 });
+    const [dragging, setDragging] = useState(false);
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+    const resetViewer = () => { setZoom(1); setRotation(0); setImgPos({ x: 0, y: 0 }); };
+    const openGaleria = (fotos: string[], index: number) => { resetViewer(); setFotoGaleria({ fotos, index }); };
+    const changePhoto = (newIndex: number) => { resetViewer(); setFotoGaleria(prev => prev ? { ...prev, index: newIndex } : null); };
     const { notification, showNotification, hideNotification } = useNotification();
     const [error, setError] = useState<string | null>(null);
     const [resumen, setResumen] = useState<ResumenItem[]>([]);
@@ -502,7 +511,7 @@ const EquiposModule = () => {
                                                         {allFotos.map((url, idx) => (
                                                             <div
                                                                 key={idx}
-                                                                onClick={() => setFotoGaleria({ fotos: allFotos, index: idx })}
+                                                                onClick={() => openGaleria(allFotos, idx)}
                                                                 style={{
                                                                     width: 70, height: 70, borderRadius: '8px', overflow: 'hidden',
                                                                     cursor: 'pointer', border: '1px solid var(--border-color, #e2e8f0)'
@@ -570,85 +579,144 @@ const EquiposModule = () => {
                 </div>
             , document.body)}
 
-            {/* Modal Galería de fotos */}
+            {/* Modal Visor de Evidencias */}
             {fotoGaleria && createPortal(
-                <div className="modal-overlay" onClick={() => setFotoGaleria(null)} style={{ zIndex: 10001, background: 'rgba(0,0,0,0.85)' }}>
-                    <div style={{ maxWidth: '95vw', maxHeight: '95vh', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }} onClick={e => e.stopPropagation()}>
-                        {/* Cerrar */}
-                        <button onClick={() => setFotoGaleria(null)} style={{
-                            position: 'absolute', top: -15, right: -15, width: 36, height: 36,
-                            borderRadius: '50%', background: '#ef4444', color: '#fff', border: 'none',
-                            cursor: 'pointer', fontWeight: 700, fontSize: '1.2rem', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center', zIndex: 2
-                        }}>×</button>
-
-                        {/* Contador */}
-                        <div style={{ color: '#fff', fontSize: '0.9rem', fontWeight: 600 }}>
-                            {fotoGaleria.index + 1} / {fotoGaleria.fotos.length}
+                <div
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 10001, background: 'rgba(0,0,0,0.92)',
+                        display: 'flex', flexDirection: 'column', userSelect: 'none'
+                    }}
+                    onWheel={e => { e.preventDefault(); setZoom(z => Math.min(5, Math.max(0.5, z + (e.deltaY > 0 ? -0.2 : 0.2)))); }}
+                >
+                    {/* Barra superior */}
+                    <div style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '12px 20px', background: 'rgba(0,0,0,0.5)'
+                    }}>
+                        <div style={{ color: '#fff', fontWeight: 600, fontSize: '0.95rem' }}>
+                            Evidencia {fotoGaleria.index + 1} de {fotoGaleria.fotos.length}
                         </div>
 
-                        {/* Imagen */}
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            {/* Flecha izquierda */}
-                            {fotoGaleria.fotos.length > 1 && (
-                                <button onClick={() => setFotoGaleria(prev => prev ? { ...prev, index: (prev.index - 1 + prev.fotos.length) % prev.fotos.length } : null)} style={{
-                                    width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.15)',
-                                    color: '#fff', border: 'none', cursor: 'pointer', fontSize: '1.5rem', display: 'flex',
-                                    alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                                }}>‹</button>
-                            )}
+                        {/* Herramientas centrales */}
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            {[
+                                { icon: '−', title: 'Alejar', action: () => setZoom(z => Math.max(0.5, z - 0.25)) },
+                                { icon: `${Math.round(zoom * 100)}%`, title: 'Zoom actual', action: () => { setZoom(1); setImgPos({ x: 0, y: 0 }); }, wide: true },
+                                { icon: '+', title: 'Acercar', action: () => setZoom(z => Math.min(5, z + 0.25)) },
+                                { icon: '↻', title: 'Rotar derecha', action: () => setRotation(r => r + 90) },
+                                { icon: '↺', title: 'Rotar izquierda', action: () => setRotation(r => r - 90) },
+                                { icon: '⟲', title: 'Restablecer', action: resetViewer },
+                            ].map((btn, i) => (
+                                <button key={i} onClick={btn.action} title={btn.title} style={{
+                                    padding: btn.wide ? '6px 14px' : '6px 12px', background: 'rgba(255,255,255,0.12)',
+                                    color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                    fontSize: btn.wide ? '0.8rem' : '1.1rem', fontWeight: 600,
+                                    minWidth: btn.wide ? 60 : 36, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                }}>{btn.icon}</button>
+                            ))}
+                        </div>
 
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <a
+                                href={fotoGaleria.fotos[fotoGaleria.index]}
+                                download={`evidencia_${fotoGaleria.index + 1}.jpg`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px',
+                                    background: '#22c55e', color: '#fff', borderRadius: '6px', textDecoration: 'none',
+                                    fontWeight: 600, fontSize: '0.85rem'
+                                }}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Descargar
+                            </a>
+                            <button onClick={() => { setFotoGaleria(null); resetViewer(); }} style={{
+                                padding: '8px 16px', background: '#ef4444', color: '#fff', border: 'none',
+                                borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem'
+                            }}>Cerrar</button>
+                        </div>
+                    </div>
+
+                    {/* Área principal: flechas + imagen */}
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                        {/* Flecha izquierda */}
+                        {fotoGaleria.fotos.length > 1 && (
+                            <button onClick={() => changePhoto((fotoGaleria.index - 1 + fotoGaleria.fotos.length) % fotoGaleria.fotos.length)} style={{
+                                position: 'absolute', left: 16, width: 50, height: 50, borderRadius: '50%',
+                                background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none',
+                                cursor: 'pointer', fontSize: '1.8rem', display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', zIndex: 2, backdropFilter: 'blur(4px)'
+                            }}>‹</button>
+                        )}
+
+                        {/* Imagen con zoom, rotación y drag */}
+                        <div
+                            style={{
+                                cursor: zoom > 1 ? (dragging ? 'grabbing' : 'grab') : 'default',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                width: '100%', height: '100%', overflow: 'hidden'
+                            }}
+                            onMouseDown={e => {
+                                if (zoom > 1) { setDragging(true); setDragStart({ x: e.clientX - imgPos.x, y: e.clientY - imgPos.y }); }
+                            }}
+                            onMouseMove={e => {
+                                if (dragging) setImgPos({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+                            }}
+                            onMouseUp={() => setDragging(false)}
+                            onMouseLeave={() => setDragging(false)}
+                            onDoubleClick={() => { if (zoom === 1) { setZoom(2.5); } else { resetViewer(); } }}
+                        >
                             <img
                                 src={fotoGaleria.fotos[fotoGaleria.index]}
-                                alt={`Foto ${fotoGaleria.index + 1}`}
-                                style={{ maxWidth: '80vw', maxHeight: '75vh', borderRadius: '10px', objectFit: 'contain' }}
+                                alt={`Evidencia ${fotoGaleria.index + 1}`}
+                                draggable={false}
+                                style={{
+                                    maxWidth: zoom === 1 ? '85vw' : 'none',
+                                    maxHeight: zoom === 1 ? '78vh' : 'none',
+                                    width: zoom > 1 ? `${zoom * 50}vw` : undefined,
+                                    borderRadius: '8px',
+                                    objectFit: 'contain',
+                                    transform: `translate(${imgPos.x}px, ${imgPos.y}px) rotate(${rotation}deg)`,
+                                    transition: dragging ? 'none' : 'transform 0.2s ease'
+                                }}
                             />
-
-                            {/* Flecha derecha */}
-                            {fotoGaleria.fotos.length > 1 && (
-                                <button onClick={() => setFotoGaleria(prev => prev ? { ...prev, index: (prev.index + 1) % prev.fotos.length } : null)} style={{
-                                    width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.15)',
-                                    color: '#fff', border: 'none', cursor: 'pointer', fontSize: '1.5rem', display: 'flex',
-                                    alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                                }}>›</button>
-                            )}
                         </div>
 
-                        {/* Botón descargar */}
-                        <a
-                            href={fotoGaleria.fotos[fotoGaleria.index]}
-                            download={`foto_revision_${fotoGaleria.index + 1}.jpg`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 24px',
-                                background: '#22c55e', color: '#fff', borderRadius: '8px', textDecoration: 'none',
-                                fontWeight: 600, fontSize: '0.9rem'
-                            }}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                            Descargar
-                        </a>
-
-                        {/* Thumbnails de navegación */}
+                        {/* Flecha derecha */}
                         {fotoGaleria.fotos.length > 1 && (
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                {fotoGaleria.fotos.map((url, idx) => (
-                                    <div
-                                        key={idx}
-                                        onClick={() => setFotoGaleria(prev => prev ? { ...prev, index: idx } : null)}
-                                        style={{
-                                            width: 50, height: 50, borderRadius: '6px', overflow: 'hidden',
-                                            cursor: 'pointer', border: idx === fotoGaleria.index ? '3px solid #22c55e' : '2px solid rgba(255,255,255,0.3)',
-                                            opacity: idx === fotoGaleria.index ? 1 : 0.6
-                                        }}
-                                    >
-                                        <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    </div>
-                                ))}
-                            </div>
+                            <button onClick={() => changePhoto((fotoGaleria.index + 1) % fotoGaleria.fotos.length)} style={{
+                                position: 'absolute', right: 16, width: 50, height: 50, borderRadius: '50%',
+                                background: 'rgba(255,255,255,0.12)', color: '#fff', border: 'none',
+                                cursor: 'pointer', fontSize: '1.8rem', display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', zIndex: 2, backdropFilter: 'blur(4px)'
+                            }}>›</button>
                         )}
                     </div>
+
+                    {/* Thumbnails abajo */}
+                    {fotoGaleria.fotos.length > 1 && (
+                        <div style={{
+                            display: 'flex', gap: '8px', justifyContent: 'center',
+                            padding: '12px 20px', background: 'rgba(0,0,0,0.5)'
+                        }}>
+                            {fotoGaleria.fotos.map((url, idx) => (
+                                <div
+                                    key={idx}
+                                    onClick={() => changePhoto(idx)}
+                                    style={{
+                                        width: 56, height: 56, borderRadius: '8px', overflow: 'hidden',
+                                        cursor: 'pointer',
+                                        border: idx === fotoGaleria.index ? '3px solid #22c55e' : '2px solid rgba(255,255,255,0.25)',
+                                        opacity: idx === fotoGaleria.index ? 1 : 0.5,
+                                        transition: 'all 0.2s ease'
+                                    }}
+                                >
+                                    <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             , document.body)}
         </div>
