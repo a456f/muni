@@ -405,7 +405,7 @@ router.post('/denuncia/:id/responder', async (req, res) => {
         await connection.query(
             `INSERT INTO seguimiento_denuncia (denuncia_id, usuario_id, mensaje, estado_nuevo, tipo_autor)
              VALUES (?, ?, ?, ?, 'OPERADOR')`,
-            [req.params.id, usuario_id, mensaje, estado_nuevo || null]
+            [req.params.id, usuario_id || null, mensaje, estado_nuevo || null]
         );
 
         // Si se envía nuevo estado, actualizar la denuncia
@@ -434,6 +434,7 @@ router.post('/denuncia/:id/responder', async (req, res) => {
         res.json({ message: 'Respuesta registrada.' });
     } catch (err) {
         await connection.rollback();
+        console.error("Error en responder denuncia:", err);
         res.status(500).json({ error: err.message });
     } finally {
         connection.release();
