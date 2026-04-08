@@ -22,6 +22,7 @@ import EstablecimientoSaludModule from '../components/EstablecimientoSaludModule
 import SaludDashboard from '../components/SaludDashboard';
 import SupervisoresModule from '../components/SupervisoresModule';
 import CriminalidadModule from '../components/CriminalidadModule';
+import DenunciasCiudadanoModule from '../components/DenunciasCiudadanoModule';
 import { API_URL, BASE_URL } from '../config/api';
 import { io } from 'socket.io-client';
 import '../styles/RealtimeNotification.css';
@@ -108,6 +109,20 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       setIsClosing(false);
       setNotifications(prev => {
         const updated = [{ id_incidencia: data.id, message: data.message, tipo: 'inconsistencia', read: false, timestamp: ts }, ...prev].slice(0, 50);
+        localStorage.setItem('sys_notifications', JSON.stringify(updated));
+        return updated;
+      });
+    });
+
+    socket.on('nueva_denuncia_ciudadano', (data: any) => {
+      const audio = new Audio('/alert.mp3');
+      audio.play().catch(e => console.log('No se pudo reproducir audio:', e));
+      const ts = new Date().toISOString();
+
+      setRealtimeNotification({ id_incidencia: data.id, message: data.message, tipo: 'denuncia_ciudadano', timestamp: ts });
+      setIsClosing(false);
+      setNotifications(prev => {
+        const updated = [{ id_incidencia: data.id, message: data.message, tipo: 'denuncia_ciudadano', read: false, timestamp: ts }, ...prev].slice(0, 50);
         localStorage.setItem('sys_notifications', JSON.stringify(updated));
         return updated;
       });
@@ -434,6 +449,8 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
         return <SaludDashboard />;
       case 'supervisores':
         return <SupervisoresModule />;
+      case 'denuncias-ciudadano':
+        return <DenunciasCiudadanoModule />;
       case 'criminalidad':
         return <CriminalidadModule />;
       case 'geografia':
@@ -520,6 +537,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
                 'salud-establecimientos': 'Salud - Establecimientos',
                 'salud-dashboard': 'Salud - Estadísticas',
                 supervisores: 'Supervisores',
+                'denuncias-ciudadano': 'Denuncias Ciudadanas',
                 criminalidad: 'Mapa de Criminalidad',
                 geografia: 'Geografía',
                 configuracion: 'Configuración'
