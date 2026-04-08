@@ -11,6 +11,7 @@ import accessRoutes from './routes/accessRoutes.js';
 import serenoRoutes from './routes/serenoRoutes.js'; // <-- 1. IMPORTAR RUTAS
 import saludRoutes from './routes/saludRoutes.js'; // <-- Rutas de Salud
 import almacenRoutes from './routes/almacenRoutes.js'; // <-- Rutas de Almacén
+import ciudadanoRoutes from './routes/ciudadanoRoutes.js'; // <-- Rutas de Ciudadano
 
 const app = express();
 const port = 3001; // Puerto diferente a Vite
@@ -197,6 +198,7 @@ app.put('/api/legacy-usuarios/:id/toggle-status', async (req, res) => {
 app.use('/api/serenos', serenoRoutes);
 app.use('/api/salud', saludRoutes);
 app.use('/api/almacen', almacenRoutes);
+app.use('/api/ciudadano', ciudadanoRoutes);
 
 
 // --- CRUD PATRULLAS ---
