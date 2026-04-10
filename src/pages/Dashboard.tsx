@@ -47,6 +47,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
   });
   const [showNotifications, setShowNotifications] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [panicoAlert, setPanicoAlert] = useState<any>(null);
 
   // Cargar KPIs al montar el componente o al cambiar a la pestaña de inicio
   useEffect(() => {
@@ -130,16 +131,18 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
 
     socket.on('alerta_panico', (data: any) => {
       const audio = new Audio('/alert.mp3');
-      audio.play().catch(e => console.log('No se pudo reproducir audio:', e));
-      // Reproducir 3 veces para urgencia
-      setTimeout(() => audio.play().catch(() => {}), 1000);
-      setTimeout(() => audio.play().catch(() => {}), 2000);
+      audio.play().catch(() => {});
+      setTimeout(() => audio.play().catch(() => {}), 800);
+      setTimeout(() => audio.play().catch(() => {}), 1600);
+      setTimeout(() => audio.play().catch(() => {}), 2400);
       const ts = new Date().toISOString();
 
-      setRealtimeNotification({ id_incidencia: data.id, message: `ALERTA DE PÁNICO - ${data.ciudadano} - ${data.telefono || 'Sin teléfono'}`, tipo: 'panico', timestamp: ts });
-      setIsClosing(false);
+      // Modal especial de pánico
+      setPanicoAlert({ ...data, timestamp: ts });
+
+      // También agregar a notificaciones del panel
       setNotifications(prev => {
-        const updated = [{ id_incidencia: data.id, message: `ALERTA PÁNICO: ${data.ciudadano} (${data.telefono || ''}) - Lat: ${data.latitud}, Lng: ${data.longitud}`, tipo: 'panico', read: false, timestamp: ts }, ...prev].slice(0, 50);
+        const updated = [{ id_incidencia: data.id, message: `ALERTA PÁNICO: ${data.ciudadano} (${data.telefono || ''})`, tipo: 'panico', read: false, timestamp: ts }, ...prev].slice(0, 50);
         localStorage.setItem('sys_notifications', JSON.stringify(updated));
         return updated;
       });
@@ -642,6 +645,60 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
           </button>
         </div>,
+        document.body
+      )}
+      {/* ALERTA DE PÁNICO - MODAL ESPECIAL */}
+      {panicoAlert && createPortal(
+        <>
+          <div className="panico-overlay" onClick={() => setPanicoAlert(null)} />
+          <div className="panico-alert">
+            <div className="panico-alert-header">
+              <div className="panico-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <div>
+                <h3>ALERTA DE PANICO</h3>
+                <div className="panico-time">{new Date(panicoAlert.timestamp || panicoAlert.fecha).toLocaleString()}</div>
+              </div>
+            </div>
+            <div className="panico-alert-body">
+              <div className="panico-info-row">
+                <span className="panico-label">Persona</span>
+                <span className="panico-value">{panicoAlert.ciudadano || 'Ciudadano'}</span>
+              </div>
+              {panicoAlert.telefono && (
+                <div className="panico-info-row">
+                  <span className="panico-label">Telefono</span>
+                  <span className="panico-value phone">{panicoAlert.telefono}</span>
+                </div>
+              )}
+              <div className="panico-info-row">
+                <span className="panico-label">GPS</span>
+                <span className="panico-value">{panicoAlert.latitud}, {panicoAlert.longitud}</span>
+              </div>
+              {panicoAlert.direccion && (
+                <div className="panico-info-row">
+                  <span className="panico-label">Direccion</span>
+                  <span className="panico-value">{panicoAlert.direccion}</span>
+                </div>
+              )}
+            </div>
+            <div className="panico-alert-actions">
+              <a
+                href={`https://www.google.com/maps?q=${panicoAlert.latitud},${panicoAlert.longitud}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="panico-btn-map"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                Ver ubicacion en mapa
+              </a>
+              <button className="panico-btn-dismiss" onClick={() => setPanicoAlert(null)}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </>,
         document.body
       )}
     </div>
