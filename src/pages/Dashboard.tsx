@@ -128,6 +128,23 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       });
     });
 
+    socket.on('alerta_panico', (data: any) => {
+      const audio = new Audio('/alert.mp3');
+      audio.play().catch(e => console.log('No se pudo reproducir audio:', e));
+      // Reproducir 3 veces para urgencia
+      setTimeout(() => audio.play().catch(() => {}), 1000);
+      setTimeout(() => audio.play().catch(() => {}), 2000);
+      const ts = new Date().toISOString();
+
+      setRealtimeNotification({ id_incidencia: data.id, message: `ALERTA DE PÁNICO - ${data.ciudadano} - ${data.telefono || 'Sin teléfono'}`, tipo: 'panico', timestamp: ts });
+      setIsClosing(false);
+      setNotifications(prev => {
+        const updated = [{ id_incidencia: data.id, message: `ALERTA PÁNICO: ${data.ciudadano} (${data.telefono || ''}) - Lat: ${data.latitud}, Lng: ${data.longitud}`, tipo: 'panico', read: false, timestamp: ts }, ...prev].slice(0, 50);
+        localStorage.setItem('sys_notifications', JSON.stringify(updated));
+        return updated;
+      });
+    });
+
     return () => {
       socket.disconnect();
     };
