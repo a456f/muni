@@ -442,6 +442,166 @@ router.post('/denuncia/:id/responder', async (req, res) => {
 });
 
 // ============================================================
+// BOTÓN DE PÁNICO - Alerta de emergencia del ciudadano
+// ============================================================
+router.post('/panico', async (req, res) => {
+    const { ciudadano_id, latitud, longitud, direccion } = req.body;
+
+    if (!latitud || !longitud) {
+        return res.status(400).json({ message: 'Se requiere ubicación GPS para enviar alerta.' });
+    }
+
+    try {
+        const [result] = await db.query(
+            `INSERT INTO alertas_panico (ciudadano_id, latitud, longitud, direccion)
+             VALUES (?, ?, ?, ?)`,
+            [ciudadano_id || null, latitud, longitud, direccion || null]
+        );
+
+        const alertaId = result.insertId;
+
+        // Obtener datos del ciudadano para la notificación
+        let nombreCiudadano = 'Ciudadano anónimo';
+        let telefonoCiudadano = '';
+        if (ciudadano_id) {
+            const [[c]] = await db.query(
+                "SELECT nombres, apellidos, telefono, dni FROM ciudadanos WHERE id = ?",
+                [ciudadano_id]
+            );
+            if (c) {
+                nombreCiudadano = `${c.nombres} ${c.apellidos}`;
+                telefonoCiudadano = c.telefono || '';
+            }
+        }
+
+        // Notificar al panel web y serenos en tiempo real
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('alerta_panico', {
+                id: alertaId,
+                ciudadano: nombreCiudadano,
+                telefono: telefonoCiudadano,
+                latitud, longitud,
+                direccion: direccion || '',
+                fecha: new Date().toISOString(),
+                message: `ALERTA DE PÁNICO de ${nombreCiudadano} - Ubicación: ${latitud}, ${longitud}`
+            });
+        }
+
+        res.status(201).json({
+            message: 'Alerta de pánico enviada. Ayuda en camino.',
+            id: alertaId
+        });
+    } catch (err) {
+        console.error("Error en alerta de pánico:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Obtener alertas de pánico activas (para el panel web)
+router.get('/alertas-panico', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT ap.*,
+                   CONCAT(c.nombres, ' ', c.apellidos) as nombre_ciudadano,
+                   c.telefono, c.dni
+            FROM alertas_panico ap
+            LEFT JOIN ciudadanos c ON ap.ciudadano_id = c.id
+            ORDER BY ap.fecha DESC
+            LIMIT 50
+        `);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Asignar sereno a alerta de pánico
+router.put('/alertas-panico/:id/asignar', async (req, res) => {
+    const { sereno_id, operador } = req.body;
+
+    if (!sereno_id) {
+        return res.status(400).json({ message: 'Se requiere sereno_id.' });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // Actualizar la alerta con el sereno asignado
+        await connection.query(
+            `UPDATE alertas_panico SET estado = 'ASIGNADO', sereno_id = ?, atendido_por = ?, fecha_atencion = NOW() WHERE id = ?`,
+            [sereno_id, operador || 'Operador', req.params.id]
+        );
+
+        // Obtener datos de la alerta y el ciudadano
+        const [[alerta]] = await connection.query(`
+            SELECT ap.*, CONCAT(c.nombres, ' ', c.apellidos) as nombre_ciudadano, c.telefono
+            FROM alertas_panico ap
+            LEFT JOIN ciudadanos c ON ap.ciudadano_id = c.id
+            WHERE ap.id = ?
+        `, [req.params.id]);
+
+        // Obtener datos del sereno
+        const [[sereno]] = await connection.query(`
+            SELECT p.id_personal, CONCAT(p.nombres, ' ', p.apellidos) as nombre_sereno
+            FROM personal p WHERE p.id_personal = ?
+        `, [sereno_id]);
+
+        await connection.commit();
+
+        // Notificar al sereno via Socket.io
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('panico_asignado_sereno', {
+                alerta_id: parseInt(req.params.id),
+                sereno_id,
+                sereno_nombre: sereno?.nombre_sereno || '',
+                ciudadano: alerta?.nombre_ciudadano || 'Ciudadano',
+                telefono: alerta?.telefono || '',
+                latitud: alerta?.latitud,
+                longitud: alerta?.longitud,
+                direccion: alerta?.direccion || '',
+                message: `Alerta de pánico asignada a ${sereno?.nombre_sereno || 'sereno'}`
+            });
+
+            // Notificar al ciudadano que un sereno va en camino
+            io.emit('panico_sereno_asignado', {
+                alerta_id: parseInt(req.params.id),
+                ciudadano_id: alerta?.ciudadano_id,
+                sereno_nombre: sereno?.nombre_sereno || 'Un sereno',
+                message: `${sereno?.nombre_sereno || 'Un sereno'} fue asignado a tu alerta y va en camino.`
+            });
+        }
+
+        res.json({
+            message: `Sereno ${sereno?.nombre_sereno || ''} asignado a la alerta.`,
+            sereno: sereno?.nombre_sereno
+        });
+    } catch (err) {
+        await connection.rollback();
+        console.error("Error al asignar sereno a alerta:", err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        connection.release();
+    }
+});
+
+// Cerrar alerta de pánico (resuelta)
+router.put('/alertas-panico/:id/cerrar', async (req, res) => {
+    const { observacion } = req.body;
+    try {
+        await db.query(
+            "UPDATE alertas_panico SET estado = 'CERRADO', observacion = ? WHERE id = ?",
+            [observacion || 'Atendida', req.params.id]
+        );
+        res.json({ message: 'Alerta cerrada.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================
 // 12. LISTAR TODAS LAS DENUNCIAS (panel web con paginación)
 // ============================================================
 router.get('/denuncias', async (req, res) => {
