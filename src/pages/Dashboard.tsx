@@ -154,6 +154,22 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       });
     });
 
+    socket.on('alerta_panico_sereno', (data: any) => {
+      const audio = new Audio('/alert.mp3');
+      audio.play().catch(() => {});
+      setTimeout(() => audio.play().catch(() => {}), 800);
+      setTimeout(() => audio.play().catch(() => {}), 1600);
+      const ts = new Date().toISOString();
+
+      setPanicoAlert({ ...data, timestamp: ts, tipo_panico: 'sereno' });
+      setNotifications(prev => {
+        const updated = [{ id_incidencia: data.id, message: `PÁNICO SERENO: ${data.sereno} solicita apoyo`, tipo: 'panico', read: false, timestamp: ts }, ...prev].slice(0, 50);
+        localStorage.setItem('sys_notifications', JSON.stringify(updated));
+        return updated;
+      });
+      setPanicosActivos(prev => prev + 1);
+    });
+
     return () => {
       socket.disconnect();
     };

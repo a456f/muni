@@ -282,4 +282,65 @@ router.post('/incidencias', async (req, res) => {
   }
 });
 
+// ============================================================
+// PÁNICO DEL SERENO - Alerta de emergencia
+// ============================================================
+router.post('/panico', async (req, res) => {
+    const { sereno_id, latitud, longitud, mensaje } = req.body;
+
+    if (!sereno_id) {
+        return res.status(400).json({ message: 'sereno_id es requerido.' });
+    }
+
+    try {
+        const [result] = await db.query(
+            `INSERT INTO alertas_panico_sereno (sereno_id, latitud, longitud, mensaje)
+             VALUES (?, ?, ?, ?)`,
+            [sereno_id, latitud || 0, longitud || 0, mensaje || null]
+        );
+
+        // Obtener datos del sereno
+        const [[sereno]] = await db.query(
+            "SELECT CONCAT(p.nombres, ' ', p.apellidos) as nombre, p.id_personal FROM personal p WHERE p.id_personal = ?",
+            [sereno_id]
+        );
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('alerta_panico_sereno', {
+                id: result.insertId,
+                sereno_id,
+                sereno: sereno?.nombre || `Sereno #${sereno_id}`,
+                latitud, longitud,
+                mensaje: mensaje || '',
+                fecha: new Date().toISOString(),
+                message: `ALERTA DE PÁNICO - Sereno ${sereno?.nombre || sereno_id} solicita apoyo urgente`
+            });
+        }
+
+        res.status(201).json({ message: 'Alerta enviada.', id: result.insertId });
+    } catch (err) {
+        console.error("Error en pánico sereno:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Alertas de ciudadanos asignadas a un sereno
+router.get('/mis-alertas/:sereno_id', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT ap.*,
+                   CONCAT(c.nombres, ' ', c.apellidos) as nombre_ciudadano,
+                   c.telefono
+            FROM alertas_panico ap
+            LEFT JOIN ciudadanos c ON ap.ciudadano_id = c.id
+            WHERE ap.sereno_id = ? AND ap.estado IN ('ASIGNADO', 'ACTIVO')
+            ORDER BY ap.fecha DESC
+        `, [req.params.sereno_id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 export default router;
