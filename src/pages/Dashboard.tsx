@@ -23,6 +23,7 @@ import SaludDashboard from '../components/SaludDashboard';
 import SupervisoresModule from '../components/SupervisoresModule';
 import CriminalidadModule from '../components/CriminalidadModule';
 import DenunciasCiudadanoModule from '../components/DenunciasCiudadanoModule';
+import AlertasPanicoModule from '../components/AlertasPanicoModule';
 import { API_URL, BASE_URL } from '../config/api';
 import { io } from 'socket.io-client';
 import '../styles/RealtimeNotification.css';
@@ -51,6 +52,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
   const [serenosDisponibles, setSerenosDisponibles] = useState<any[]>([]);
   const [serenoSeleccionado, setSerenoSeleccionado] = useState('');
   const [asignandoSereno, setAsignandoSereno] = useState(false);
+  const [panicosActivos, setPanicosActivos] = useState(0);
 
   // Cargar KPIs al montar el componente o al cambiar a la pestaña de inicio
   useEffect(() => {
@@ -142,6 +144,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
 
       // Modal especial de pánico
       setPanicoAlert({ ...data, timestamp: ts });
+      setPanicosActivos(prev => prev + 1);
 
       // También agregar a notificaciones del panel
       setNotifications(prev => {
@@ -154,6 +157,23 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
     return () => {
       socket.disconnect();
     };
+  }, []);
+
+  // Cargar cantidad de pánicos activos
+  const fetchPanicosActivos = () => {
+    fetch(`${API_URL}/ciudadano/alertas-panico`)
+      .then(r => r.json())
+      .then(data => {
+        const activos = (Array.isArray(data) ? data : []).filter((a: any) => a.estado === 'ACTIVO' || a.estado === 'ASIGNADO').length;
+        setPanicosActivos(activos);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchPanicosActivos();
+    const interval = setInterval(fetchPanicosActivos, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   // Cargar serenos cuando llega alerta de pánico
@@ -514,6 +534,8 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
         return <SupervisoresModule />;
       case 'denuncias-ciudadano':
         return <DenunciasCiudadanoModule />;
+      case 'alertas-panico':
+        return <AlertasPanicoModule />;
       case 'criminalidad':
         return <CriminalidadModule />;
       case 'geografia':
@@ -601,6 +623,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
                 'salud-dashboard': 'Salud - Estadísticas',
                 supervisores: 'Supervisores',
                 'denuncias-ciudadano': 'Denuncias Ciudadanas',
+                'alertas-panico': 'Alertas de Panico',
                 criminalidad: 'Mapa de Criminalidad',
                 geografia: 'Geografía',
                 configuracion: 'Configuración'
@@ -609,6 +632,13 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
           </div>
           
           <div className="top-bar-actions">
+            {/* Sirena de pánico */}
+            {panicosActivos > 0 && (
+              <div className="panico-siren" onClick={() => handleTabChange('alertas-panico')} title={`${panicosActivos} alerta(s) de panico activas`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span className="panico-siren-badge">{panicosActivos}</span>
+              </div>
+            )}
             <div className="notification-bell" onClick={handleBellClick}>
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
               {notifications.filter(n => !n.read).length > 0 && (
