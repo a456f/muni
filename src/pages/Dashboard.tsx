@@ -48,6 +48,9 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
   const [showNotifications, setShowNotifications] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [panicoAlert, setPanicoAlert] = useState<any>(null);
+  const [serenosDisponibles, setSerenosDisponibles] = useState<any[]>([]);
+  const [serenoSeleccionado, setSerenoSeleccionado] = useState('');
+  const [asignandoSereno, setAsignandoSereno] = useState(false);
 
   // Cargar KPIs al montar el componente o al cambiar a la pestaña de inicio
   useEffect(() => {
@@ -152,6 +155,46 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       socket.disconnect();
     };
   }, []);
+
+  // Cargar serenos cuando llega alerta de pánico
+  useEffect(() => {
+    if (panicoAlert) {
+      fetch(`${API_URL}/serenos/activos`)
+        .then(r => r.json())
+        .then(data => setSerenosDisponibles(Array.isArray(data) ? data : data.data || []))
+        .catch(() => {
+          // Fallback: cargar personal de serenazgo
+          fetch(`${API_URL}/personal`)
+            .then(r => r.json())
+            .then(data => setSerenosDisponibles(Array.isArray(data) ? data : data.data || []))
+            .catch(() => setSerenosDisponibles([]));
+        });
+    }
+  }, [panicoAlert]);
+
+  const asignarSereno = async () => {
+    if (!serenoSeleccionado || !panicoAlert?.id) return;
+    setAsignandoSereno(true);
+    try {
+      const res = await fetch(`${API_URL}/ciudadano/alertas-panico/${panicoAlert.id}/asignar`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sereno_id: parseInt(serenoSeleccionado), operador: user?.username || 'Operador' })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPanicoAlert(null);
+        setSerenoSeleccionado('');
+        alert(`Sereno asignado: ${data.sereno || 'OK'}`);
+      } else {
+        alert('Error al asignar sereno');
+      }
+    } catch {
+      alert('Error de conexión');
+    } finally {
+      setAsignandoSereno(false);
+    }
+  };
 
   // Efecto para ocultar automáticamente la notificación
   useEffect(() => {
@@ -683,6 +726,40 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
                 </div>
               )}
             </div>
+            {/* Asignar sereno */}
+            <div style={{ padding: '0 24px 8px', borderTop: '1px solid #f0f0f0' }}>
+              <div style={{ fontSize: '0.78rem', color: '#9E9E9E', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 14, marginBottom: 8 }}>Asignar sereno</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <select
+                  value={serenoSeleccionado}
+                  onChange={e => setSerenoSeleccionado(e.target.value)}
+                  style={{
+                    flex: 1, padding: '10px 12px', borderRadius: 10, border: '2px solid #E0E0E0',
+                    fontSize: '0.9rem', background: '#FAFAFA', outline: 'none'
+                  }}
+                >
+                  <option value="">Seleccionar sereno...</option>
+                  {serenosDisponibles.map((s: any) => (
+                    <option key={s.id_personal || s.id} value={s.id_personal || s.id}>
+                      {s.nombres ? `${s.nombres} ${s.apellidos || ''}` : s.nombre_completo || `Sereno #${s.id_personal || s.id}`}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={asignarSereno}
+                  disabled={!serenoSeleccionado || asignandoSereno}
+                  style={{
+                    padding: '10px 18px', background: serenoSeleccionado ? '#1B5E20' : '#E0E0E0',
+                    color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700,
+                    fontSize: '0.85rem', cursor: serenoSeleccionado ? 'pointer' : 'not-allowed',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {asignandoSereno ? 'Asignando...' : 'Asignar'}
+                </button>
+              </div>
+            </div>
+
             <div className="panico-alert-actions">
               <a
                 href={`https://www.google.com/maps?q=${panicoAlert.latitud},${panicoAlert.longitud}`}
@@ -691,8 +768,18 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
                 className="panico-btn-map"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                Ver ubicacion en mapa
+                Ver en mapa
               </a>
+              {panicoAlert.telefono && (
+                <a
+                  href={`tel:${panicoAlert.telefono}`}
+                  className="panico-btn-map"
+                  style={{ background: '#1565C0' }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  Llamar
+                </a>
+              )}
               <button className="panico-btn-dismiss" onClick={() => setPanicoAlert(null)}>
                 Cerrar
               </button>
