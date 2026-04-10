@@ -601,6 +601,24 @@ router.put('/alertas-panico/:id/cerrar', async (req, res) => {
     }
 });
 
+// Mis alertas de pánico (para app ciudadano)
+router.get('/mis-alertas-panico/:ciudadano_id', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT ap.*,
+                   CONCAT(p.nombres, ' ', p.apellidos) as nombre_sereno
+            FROM alertas_panico ap
+            LEFT JOIN personal p ON ap.sereno_id = p.id_personal
+            WHERE ap.ciudadano_id = ?
+            ORDER BY ap.fecha DESC
+            LIMIT 20
+        `, [req.params.ciudadano_id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ============================================================
 // 12. LISTAR TODAS LAS DENUNCIAS (panel web con paginación)
 // ============================================================
