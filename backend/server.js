@@ -12,6 +12,7 @@ import serenoRoutes from './routes/serenoRoutes.js'; // <-- 1. IMPORTAR RUTAS
 import saludRoutes from './routes/saludRoutes.js'; // <-- Rutas de Salud
 import almacenRoutes from './routes/almacenRoutes.js'; // <-- Rutas de Almacén
 import ciudadanoRoutes from './routes/ciudadanoRoutes.js'; // <-- Rutas de Ciudadano
+import camarasRoutes from './routes/camarasRoutes.js'; // <-- Cámaras instaladas
 
 const app = express();
 const port = 3001; // Puerto diferente a Vite
@@ -199,6 +200,7 @@ app.use('/api/serenos', serenoRoutes);
 app.use('/api/salud', saludRoutes);
 app.use('/api/almacen', almacenRoutes);
 app.use('/api/ciudadano', ciudadanoRoutes);
+app.use('/api/camaras', camarasRoutes);
 
 
 // --- CRUD PATRULLAS ---

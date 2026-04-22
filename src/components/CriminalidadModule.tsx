@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { API_URL } from '../config/api';
 
 // ====== DATOS SIMULADOS ======
 
@@ -140,7 +141,9 @@ const CriminalidadModule: React.FC = () => {
   const markersRef = useRef<any[]>([]);
   const comisariasRef = useRef<any[]>([]);
   const hospitalesRef = useRef<any[]>([]);
+  const camarasRef = useRef<any[]>([]);
   const polygonsRef = useRef<any[]>([]);
+  const clickListenerRef = useRef<any>(null);
 
   const [mapLoaded, setMapLoaded] = useState(false);
   const [activeView, setActiveView] = useState<'mapa' | 'estadisticas' | 'tabla'>('mapa');
@@ -149,6 +152,16 @@ const CriminalidadModule: React.FC = () => {
   const [showMarkers, setShowMarkers] = useState(false);
   const [showComisarias, setShowComisarias] = useState(true);
   const [showHospitales, setShowHospitales] = useState(true);
+  const [showCamaras, setShowCamaras] = useState(true);
+  const [camaras, setCamaras] = useState<any[]>([]);
+  const [modoAgregarCamara, setModoAgregarCamara] = useState(false);
+  const [ubicacionSeleccionada, setUbicacionSeleccionada] = useState<{lat: number, lng: number} | null>(null);
+  const [modalCamaraAbierto, setModalCamaraAbierto] = useState(false);
+  const [camarasDisponibles, setCamarasDisponibles] = useState<any[]>([]);
+  const [busquedaCamara, setBusquedaCamara] = useState('');
+  const [camaraSeleccionada, setCamaraSeleccionada] = useState<any>(null);
+  const [camaraDetalle, setCamaraDetalle] = useState<any>(null);
+  const [datosInstalacion, setDatosInstalacion] = useState({ direccion: '', referencia: '', estado: 'ACTIVA' });
   const [filtroTipo, setFiltroTipo] = useState<number | null>(null);
   const [filtroPeriodo, setFiltroPeriodo] = useState('90');
   const [selectedIncidencia, setSelectedIncidencia] = useState<any>(null);
@@ -396,6 +409,125 @@ const CriminalidadModule: React.FC = () => {
     }
   }, [showHospitales, mapLoaded]);
 
+  // Cargar cámaras instaladas
+  const fetchCamaras = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/camaras`);
+      if (res.ok) setCamaras(await res.json());
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchCamaras(); }, [fetchCamaras]);
+
+  // Buscar cámaras disponibles
+  const buscarCamarasDisponibles = useCallback(async (q: string) => {
+    try {
+      const res = await fetch(`${API_URL}/camaras/disponibles?q=${encodeURIComponent(q)}`);
+      if (res.ok) setCamarasDisponibles(await res.json());
+    } catch {}
+  }, []);
+
+  // Renderizar cámaras en el mapa
+  useEffect(() => {
+    if (!googleMapRef.current || !mapLoaded) return;
+    const google = (window as any).google;
+    camarasRef.current.forEach(m => m.setMap(null));
+    camarasRef.current = [];
+
+    if (showCamaras) {
+      camaras.forEach((cam: any) => {
+        const colorEstado = cam.estado === 'ACTIVA' ? '#16a34a' : cam.estado === 'MANTENIMIENTO' ? '#f59e0b' : cam.estado === 'DAÑADA' ? '#dc2626' : '#6b7280';
+        const marker = new google.maps.Marker({
+          position: { lat: parseFloat(cam.latitud), lng: parseFloat(cam.longitud) },
+          map: googleMapRef.current,
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+              `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${colorEstado}" stroke="#fff" stroke-width="2"/><path d="M7 9h2l1-1h4l1 1h2v7H7V9z M12 11a2 2 0 100 4 2 2 0 000-4z" fill="#fff"/></svg>`
+            ),
+            scaledSize: new google.maps.Size(36, 36),
+          },
+          title: cam.descripcion,
+        });
+        marker.addListener('click', () => setCamaraDetalle(cam));
+        camarasRef.current.push(marker);
+      });
+    }
+  }, [showCamaras, camaras, mapLoaded]);
+
+  // Modo agregar cámara: click en el mapa
+  useEffect(() => {
+    if (!googleMapRef.current || !mapLoaded) return;
+    const google = (window as any).google;
+
+    if (clickListenerRef.current) {
+      google.maps.event.removeListener(clickListenerRef.current);
+      clickListenerRef.current = null;
+    }
+
+    if (modoAgregarCamara) {
+      clickListenerRef.current = googleMapRef.current.addListener('click', (e: any) => {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+        setUbicacionSeleccionada({ lat, lng });
+        setModalCamaraAbierto(true);
+        setModoAgregarCamara(false);
+        buscarCamarasDisponibles('');
+      });
+      googleMapRef.current.setOptions({ draggableCursor: 'crosshair' });
+    } else {
+      googleMapRef.current.setOptions({ draggableCursor: null });
+    }
+  }, [modoAgregarCamara, mapLoaded, buscarCamarasDisponibles]);
+
+  // Instalar cámara
+  const instalarCamara = async () => {
+    if (!camaraSeleccionada || !ubicacionSeleccionada) return;
+    try {
+      const res = await fetch(`${API_URL}/camaras`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          equipo_id: camaraSeleccionada.id,
+          latitud: ubicacionSeleccionada.lat,
+          longitud: ubicacionSeleccionada.lng,
+          ...datosInstalacion
+        })
+      });
+      if (res.ok) {
+        setModalCamaraAbierto(false);
+        setCamaraSeleccionada(null);
+        setUbicacionSeleccionada(null);
+        setBusquedaCamara('');
+        setDatosInstalacion({ direccion: '', referencia: '', estado: 'ACTIVA' });
+        fetchCamaras();
+      } else {
+        const err = await res.json();
+        alert(err.message || 'Error al instalar cámara');
+      }
+    } catch { alert('Error de conexión'); }
+  };
+
+  // Cambiar estado de cámara
+  const cambiarEstadoCamara = async (id: number, nuevoEstado: string) => {
+    try {
+      const res = await fetch(`${API_URL}/camaras/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: nuevoEstado })
+      });
+      if (res.ok) { setCamaraDetalle(null); fetchCamaras(); }
+    } catch {}
+  };
+
+  // Eliminar cámara
+  const eliminarCamara = async (id: number) => {
+    if (!confirm('¿Eliminar esta cámara del mapa? Volverá a estar disponible en almacén.')) return;
+    try {
+      const res = await fetch(`${API_URL}/camaras/${id}`, { method: 'DELETE' });
+      if (res.ok) { setCamaraDetalle(null); fetchCamaras(); }
+    } catch {}
+  };
+
   // Barra de stats rápida
   const maxBar = Math.max(...STATS_MENSUALES.map(s => s.total), 1);
 
@@ -467,6 +599,7 @@ const CriminalidadModule: React.FC = () => {
                 { label: 'Marcadores', checked: showMarkers, onChange: () => setShowMarkers(!showMarkers), color: '#3b82f6' },
                 { label: 'Comisarías', checked: showComisarias, onChange: () => setShowComisarias(!showComisarias), color: '#1e40af' },
                 { label: 'Hospitales', checked: showHospitales, onChange: () => setShowHospitales(!showHospitales), color: '#dc2626' },
+                { label: `Cámaras (${camaras.length})`, checked: showCamaras, onChange: () => setShowCamaras(!showCamaras), color: '#16a34a' },
               ].map((layer, i) => (
                 <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', cursor: 'pointer', fontSize: '0.88rem' }}>
                   <input type="checkbox" checked={layer.checked} onChange={layer.onChange} style={{ accentColor: layer.color }} />
@@ -501,6 +634,23 @@ const CriminalidadModule: React.FC = () => {
                 </div>
               ))}
             </div>
+
+            {/* Botón agregar cámara */}
+            <button
+              onClick={() => setModoAgregarCamara(!modoAgregarCamara)}
+              style={{
+                padding: '10px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                background: modoAgregarCamara ? '#dc2626' : '#16a34a', color: '#fff',
+                fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center'
+              }}
+            >
+              {modoAgregarCamara ? '✕ Cancelar selección' : '+ Instalar cámara'}
+            </button>
+            {modoAgregarCamara && (
+              <p style={{ fontSize: '0.78rem', color: '#16a34a', textAlign: 'center', marginTop: 4 }}>
+                Haz clic en el mapa donde instalar la cámara
+              </p>
+            )}
           </div>
 
           {/* Mapa */}
@@ -707,6 +857,176 @@ const CriminalidadModule: React.FC = () => {
                 Mostrando 100 de {incidenciasFiltradas.length} registros
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Seleccionar cámara del almacén */}
+      {modalCamaraAbierto && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+        }} onClick={() => setModalCamaraAbierto(false)}>
+          <div style={{
+            background: '#fff', borderRadius: 14, width: '100%', maxWidth: 600, maxHeight: '90vh',
+            overflow: 'hidden', display: 'flex', flexDirection: 'column'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: 20, borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Instalar cámara</h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#6b7280' }}>
+                  Ubicación: {ubicacionSeleccionada?.lat.toFixed(6)}, {ubicacionSeleccionada?.lng.toFixed(6)}
+                </p>
+              </div>
+              <button onClick={() => setModalCamaraAbierto(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+            </div>
+
+            <div style={{ padding: 20, overflowY: 'auto', flex: 1 }}>
+              {!camaraSeleccionada ? (
+                <>
+                  <input
+                    type="text"
+                    placeholder="Buscar por serie, identificador, SBN, descripción..."
+                    value={busquedaCamara}
+                    onChange={e => { setBusquedaCamara(e.target.value); buscarCamarasDisponibles(e.target.value); }}
+                    style={{
+                      width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb',
+                      fontSize: '0.9rem', marginBottom: 12, boxSizing: 'border-box'
+                    }}
+                    autoFocus
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 400, overflowY: 'auto' }}>
+                    {camarasDisponibles.length === 0 ? (
+                      <p style={{ color: '#6b7280', textAlign: 'center', fontSize: '0.85rem', padding: 20 }}>
+                        No se encontraron cámaras disponibles en almacén
+                      </p>
+                    ) : camarasDisponibles.map(cam => (
+                      <div key={cam.id} onClick={() => setCamaraSeleccionada(cam)}
+                        style={{
+                          padding: 12, border: '1px solid #e5e7eb', borderRadius: 8, cursor: 'pointer',
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+                          transition: 'all 0.15s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.borderColor = '#16a34a'}
+                        onMouseLeave={e => e.currentTarget.style.borderColor = '#e5e7eb'}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{cam.descripcion}</div>
+                          <div style={{ fontSize: '0.78rem', color: '#6b7280', marginTop: 2 }}>
+                            {cam.marca} {cam.modelo} &middot; {cam.tipo_equipo}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: 2 }}>
+                            Serie: {cam.numero_serie} {cam.identificador && ` · ID: ${cam.identificador}`}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: '1.2rem', color: '#16a34a' }}>→</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <div style={{ padding: 14, background: '#f0fdf4', borderRadius: 8, marginBottom: 16, border: '1px solid #86efac' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{camaraSeleccionada.descripcion}</div>
+                    <div style={{ fontSize: '0.82rem', color: '#6b7280', marginTop: 3 }}>
+                      {camaraSeleccionada.marca} {camaraSeleccionada.modelo} &middot; Serie: {camaraSeleccionada.numero_serie}
+                    </div>
+                    <button onClick={() => setCamaraSeleccionada(null)} style={{
+                      background: 'none', border: 'none', color: '#16a34a', cursor: 'pointer',
+                      fontSize: '0.78rem', padding: 0, marginTop: 6
+                    }}>← Cambiar cámara</button>
+                  </div>
+
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Dirección</label>
+                  <input type="text" placeholder="Ej: Jr. Ancash 123"
+                    value={datosInstalacion.direccion}
+                    onChange={e => setDatosInstalacion({ ...datosInstalacion, direccion: e.target.value })}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: '0.9rem', marginBottom: 12, marginTop: 4, boxSizing: 'border-box' }} />
+
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Referencia</label>
+                  <input type="text" placeholder="Ej: Frente al parque, poste esquina"
+                    value={datosInstalacion.referencia}
+                    onChange={e => setDatosInstalacion({ ...datosInstalacion, referencia: e.target.value })}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: '0.9rem', marginBottom: 12, marginTop: 4, boxSizing: 'border-box' }} />
+
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Estado</label>
+                  <select value={datosInstalacion.estado}
+                    onChange={e => setDatosInstalacion({ ...datosInstalacion, estado: e.target.value })}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: '0.9rem', marginTop: 4, boxSizing: 'border-box' }}>
+                    <option value="ACTIVA">ACTIVA</option>
+                    <option value="INACTIVA">INACTIVA</option>
+                    <option value="MANTENIMIENTO">EN MANTENIMIENTO</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {camaraSeleccionada && (
+              <div style={{ padding: 16, borderTop: '1px solid #e5e7eb', display: 'flex', gap: 8 }}>
+                <button onClick={() => setModalCamaraAbierto(false)} style={{
+                  flex: 1, padding: '10px', borderRadius: 8, border: '1px solid #e5e7eb',
+                  background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem'
+                }}>Cancelar</button>
+                <button onClick={instalarCamara} style={{
+                  flex: 2, padding: '10px', borderRadius: 8, border: 'none',
+                  background: '#16a34a', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem'
+                }}>Instalar cámara</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Detalle de cámara instalada */}
+      {camaraDetalle && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+        }} onClick={() => setCamaraDetalle(null)}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: 20, borderBottom: '1px solid #e5e7eb' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{camaraDetalle.descripcion}</h3>
+              <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#6b7280' }}>
+                {camaraDetalle.marca} {camaraDetalle.modelo}
+              </p>
+            </div>
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.88rem' }}>
+              <div><strong>Serie:</strong> {camaraDetalle.numero_serie}</div>
+              {camaraDetalle.identificador && <div><strong>Identificador:</strong> {camaraDetalle.identificador}</div>}
+              {camaraDetalle.sbn && <div><strong>SBN:</strong> {camaraDetalle.sbn}</div>}
+              <div><strong>Tipo:</strong> {camaraDetalle.tipo_equipo}</div>
+              {camaraDetalle.direccion && <div><strong>Dirección:</strong> {camaraDetalle.direccion}</div>}
+              {camaraDetalle.referencia && <div><strong>Referencia:</strong> {camaraDetalle.referencia}</div>}
+              <div><strong>Ubicación:</strong> {camaraDetalle.latitud}, {camaraDetalle.longitud}</div>
+              <div><strong>Instalada:</strong> {new Date(camaraDetalle.fecha_instalacion).toLocaleString()}</div>
+
+              <div style={{ marginTop: 10 }}>
+                <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 4 }}>Estado</label>
+                <select value={camaraDetalle.estado}
+                  onChange={e => cambiarEstadoCamara(camaraDetalle.id, e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                  <option value="ACTIVA">ACTIVA</option>
+                  <option value="INACTIVA">INACTIVA</option>
+                  <option value="MANTENIMIENTO">EN MANTENIMIENTO</option>
+                  <option value="DAÑADA">DAÑADA</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ padding: 16, borderTop: '1px solid #e5e7eb', display: 'flex', gap: 8 }}>
+              <button onClick={() => eliminarCamara(camaraDetalle.id)} style={{
+                padding: '8px 14px', borderRadius: 8, border: '1px solid #fecaca',
+                background: '#fff', color: '#dc2626', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem'
+              }}>Remover</button>
+              <a href={`https://www.google.com/maps?q=${camaraDetalle.latitud},${camaraDetalle.longitud}`} target="_blank" rel="noopener noreferrer" style={{
+                flex: 1, padding: '8px 14px', borderRadius: 8, border: 'none',
+                background: '#1e40af', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
+                textDecoration: 'none', textAlign: 'center'
+              }}>Ver en Google Maps</a>
+              <button onClick={() => setCamaraDetalle(null)} style={{
+                padding: '8px 14px', borderRadius: 8, border: 'none',
+                background: '#374151', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem'
+              }}>Cerrar</button>
+            </div>
           </div>
         </div>
       )}
