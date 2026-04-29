@@ -23,5 +23,8 @@ INSERT IGNORE INTO rol (id_rol, nombre, sistema) VALUES
 (5, 'almacenero', 'MOVIL'),
 (6, 'supervisor', 'WEB');
 
--- 4. Asignar rol superadmin al usuario admin
-INSERT IGNORE INTO usuario_rol (id_usuario, id_rol) VALUES (1, 1);
+-- 4. Asignar rol superadmin al usuario admin (busca por nombre, no por id fijo)
+INSERT IGNORE INTO usuario_rol (id_usuario, id_rol)
+SELECT u.id_usuario, r.id_rol
+FROM usuario u, rol r
+WHERE u.username = 'admin' AND r.nombre = 'superadmin';
