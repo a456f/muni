@@ -57,6 +57,9 @@ fi
 if [ -f "backend/sql/extra_tables.sql" ]; then
     mysql -u appuser -p123456 sistema_denuncias < backend/sql/extra_tables.sql || true
 fi
+if [ -f "backend/sql/seed_admin.sql" ]; then
+    mysql -u appuser -p123456 sistema_denuncias < backend/sql/seed_admin.sql || true
+fi
 
 # 8. Instalar dependencias y compilar
 echo "[8/8] Instalando dependencias del proyecto..."
@@ -90,6 +93,11 @@ echo "  INSTALACIÓN COMPLETA"
 echo "============================================"
 echo "  Panel web:  http://$IP:3000"
 echo "  API:        http://$IP:3001"
+echo ""
+echo "  Login admin:"
+echo "    usuario:  admin"
+echo "    password: admin123"
+echo ""
 echo "  MySQL user: appuser / 123456"
 echo "  DB name:    sistema_denuncias"
 echo ""
