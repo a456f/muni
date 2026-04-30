@@ -518,7 +518,7 @@ const CriminalidadModule: React.FC = () => {
         setCamaraSeleccionada(null);
         setUbicacionSeleccionada(null);
         setBusquedaCamara('');
-        setDatosInstalacion({ direccion: '', referencia: '', estado: 'ACTIVA' });
+        setDatosInstalacion({ direccion: '', referencia: '', estado: 'ACTIVA', stream_url: '', stream_user: '', stream_password: '' });
         fetchCamaras();
       } else {
         const err = await res.json();
