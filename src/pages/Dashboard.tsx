@@ -24,6 +24,7 @@ import SupervisoresModule from '../components/SupervisoresModule';
 import CriminalidadModule from '../components/CriminalidadModule';
 import DenunciasCiudadanoModule from '../components/DenunciasCiudadanoModule';
 import AlertasPanicoModule from '../components/AlertasPanicoModule';
+import PatrullajeVivoModule from '../components/PatrullajeVivoModule';
 import { API_URL, BASE_URL } from '../config/api';
 import { io } from 'socket.io-client';
 import '../styles/RealtimeNotification.css';
@@ -552,6 +553,8 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
         return <DenunciasCiudadanoModule />;
       case 'alertas-panico':
         return <AlertasPanicoModule />;
+      case 'patrullaje-vivo':
+        return <PatrullajeVivoModule />;
       case 'criminalidad':
         return <CriminalidadModule />;
       case 'geografia':
@@ -640,6 +643,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
                 supervisores: 'Supervisores',
                 'denuncias-ciudadano': 'Denuncias Ciudadanas',
                 'alertas-panico': 'Alertas de Panico',
+                'patrullaje-vivo': 'Patrullaje en Vivo',
                 criminalidad: 'Mapa de Criminalidad',
                 geografia: 'Geografía',
                 configuracion: 'Configuración'

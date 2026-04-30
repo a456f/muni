@@ -343,4 +343,163 @@ router.get('/mis-alertas/:sereno_id', async (req, res) => {
     }
 });
 
+// ============================================================
+// RECORRIDOS GPS DEL SERENO
+// ============================================================
+
+// Iniciar patrullaje
+router.post('/recorrido/iniciar', async (req, res) => {
+    const { sereno_id } = req.body;
+    if (!sereno_id) return res.status(400).json({ message: 'sereno_id requerido.' });
+
+    try {
+        // Si tiene uno activo, lo cerramos
+        await db.query(
+            `UPDATE recorridos_serenos SET estado='FINALIZADO', fecha_fin=NOW()
+             WHERE sereno_id=? AND estado='ACTIVO'`, [sereno_id]
+        );
+
+        const [r] = await db.query(
+            `INSERT INTO recorridos_serenos (sereno_id, estado) VALUES (?, 'ACTIVO')`,
+            [sereno_id]
+        );
+
+        const [[sereno]] = await db.query(
+            `SELECT CONCAT(p.nombres,' ',p.apellidos) as nombre FROM personal p WHERE id_personal=?`,
+            [sereno_id]
+        );
+
+        const io = req.app.get('io');
+        if (io) io.emit('recorrido_iniciado', { recorrido_id: r.insertId, sereno_id, nombre: sereno?.nombre });
+
+        res.json({ message: 'Patrullaje iniciado.', recorrido_id: r.insertId });
+    } catch (err) {
+        console.error("Error iniciar recorrido:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Agregar punto GPS al recorrido activo
+router.post('/recorrido/punto', async (req, res) => {
+    const { sereno_id, latitud, longitud, velocidad } = req.body;
+    if (!sereno_id || !latitud || !longitud) return res.status(400).json({ message: 'Datos incompletos.' });
+
+    try {
+        const [[recorrido]] = await db.query(
+            `SELECT id FROM recorridos_serenos WHERE sereno_id=? AND estado='ACTIVO' ORDER BY id DESC LIMIT 1`,
+            [sereno_id]
+        );
+        if (!recorrido) return res.status(404).json({ message: 'No hay patrullaje activo. Inicie primero.' });
+
+        await db.query(
+            `INSERT INTO puntos_recorrido (recorrido_id, latitud, longitud, velocidad)
+             VALUES (?, ?, ?, ?)`,
+            [recorrido.id, latitud, longitud, velocidad || 0]
+        );
+
+        const io = req.app.get('io');
+        if (io) io.emit('gps_sereno', {
+            recorrido_id: recorrido.id, sereno_id, latitud, longitud,
+            velocidad: velocidad || 0, fecha: new Date().toISOString()
+        });
+
+        res.json({ message: 'OK', recorrido_id: recorrido.id });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Finalizar patrullaje
+router.post('/recorrido/finalizar', async (req, res) => {
+    const { sereno_id } = req.body;
+    if (!sereno_id) return res.status(400).json({ message: 'sereno_id requerido.' });
+
+    try {
+        const [[recorrido]] = await db.query(
+            `SELECT id FROM recorridos_serenos WHERE sereno_id=? AND estado='ACTIVO' ORDER BY id DESC LIMIT 1`,
+            [sereno_id]
+        );
+        if (!recorrido) return res.status(404).json({ message: 'Sin patrullaje activo.' });
+
+        // Calcular distancia aproximada
+        const [puntos] = await db.query(
+            `SELECT latitud, longitud FROM puntos_recorrido WHERE recorrido_id=? ORDER BY id ASC`,
+            [recorrido.id]
+        );
+        let km = 0;
+        for (let i = 1; i < puntos.length; i++) {
+            const a = puntos[i-1], b = puntos[i];
+            const R = 6371;
+            const dLat = (b.latitud - a.latitud) * Math.PI / 180;
+            const dLon = (b.longitud - a.longitud) * Math.PI / 180;
+            const aa = Math.sin(dLat/2)**2 + Math.cos(a.latitud*Math.PI/180) * Math.cos(b.latitud*Math.PI/180) * Math.sin(dLon/2)**2;
+            km += 2 * R * Math.asin(Math.sqrt(aa));
+        }
+
+        await db.query(
+            `UPDATE recorridos_serenos SET estado='FINALIZADO', fecha_fin=NOW(), distancia_km=? WHERE id=?`,
+            [km.toFixed(2), recorrido.id]
+        );
+
+        const io = req.app.get('io');
+        if (io) io.emit('recorrido_finalizado', { recorrido_id: recorrido.id, sereno_id, distancia_km: km.toFixed(2) });
+
+        res.json({ message: 'Patrullaje finalizado.', distancia_km: km.toFixed(2), puntos: puntos.length });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Listar recorridos activos (para el panel web)
+router.get('/recorridos/activos', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT r.id, r.sereno_id, r.fecha_inicio,
+                   CONCAT(p.nombres, ' ', p.apellidos) as nombre_sereno,
+                   p.codigo_personal,
+                   (SELECT COUNT(*) FROM puntos_recorrido WHERE recorrido_id = r.id) as total_puntos,
+                   (SELECT latitud FROM puntos_recorrido WHERE recorrido_id = r.id ORDER BY id DESC LIMIT 1) as ultima_lat,
+                   (SELECT longitud FROM puntos_recorrido WHERE recorrido_id = r.id ORDER BY id DESC LIMIT 1) as ultima_lng
+            FROM recorridos_serenos r
+            JOIN personal p ON r.sereno_id = p.id_personal
+            WHERE r.estado = 'ACTIVO'
+            ORDER BY r.fecha_inicio DESC
+        `);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Obtener puntos de un recorrido
+router.get('/recorridos/:id/puntos', async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            `SELECT id, latitud, longitud, velocidad, fecha FROM puntos_recorrido WHERE recorrido_id=? ORDER BY id ASC`,
+            [req.params.id]
+        );
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Historial de recorridos por sereno
+router.get('/recorridos/historial/:sereno_id', async (req, res) => {
+    try {
+        const [rows] = await db.query(`
+            SELECT r.*, CONCAT(p.nombres,' ',p.apellidos) as nombre_sereno,
+                   (SELECT COUNT(*) FROM puntos_recorrido WHERE recorrido_id = r.id) as total_puntos
+            FROM recorridos_serenos r
+            JOIN personal p ON r.sereno_id = p.id_personal
+            WHERE r.sereno_id = ?
+            ORDER BY r.fecha_inicio DESC
+            LIMIT 50
+        `, [req.params.sereno_id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 export default router;

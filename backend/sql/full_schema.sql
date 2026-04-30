@@ -524,6 +524,31 @@ CREATE TABLE IF NOT EXISTS alertas_panico_sereno (
     INDEX idx_estado (estado)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ===== RECORRIDOS DE SERENOS (GPS tracking) =====
+
+CREATE TABLE IF NOT EXISTS recorridos_serenos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sereno_id INT NOT NULL,
+    estado ENUM('ACTIVO','FINALIZADO') DEFAULT 'ACTIVO',
+    fecha_inicio DATETIME DEFAULT CURRENT_TIMESTAMP,
+    fecha_fin DATETIME NULL,
+    distancia_km DECIMAL(8,2) DEFAULT 0,
+    observacion TEXT NULL,
+    INDEX idx_sereno (sereno_id),
+    INDEX idx_estado (estado)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS puntos_recorrido (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    recorrido_id INT NOT NULL,
+    latitud DECIMAL(10,7) NOT NULL,
+    longitud DECIMAL(10,7) NOT NULL,
+    velocidad DECIMAL(5,2) DEFAULT 0,
+    fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_recorrido (recorrido_id),
+    INDEX idx_fecha (fecha)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ===== DATOS BASE =====
