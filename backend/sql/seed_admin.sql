@@ -14,14 +14,17 @@ VALUES (1, '00000001', 'Administrador', 'Sistema', 'admin@oisgo.local', 1);
 INSERT IGNORE INTO usuario (id_usuario, id_personal, username, password_hash, estado, fecha_creacion)
 VALUES (1, 1, 'admin', '$2b$10$sAAAHY7XjZGLAEFa/FBAfen1dFmked8oZzx31iU0XL/F1U4U124S6', 1, NOW());
 
--- 3. Insertar roles base si no existen
-INSERT IGNORE INTO rol (id_rol, nombre, sistema) VALUES
-(1, 'superadmin', 'WEB'),
-(2, 'admin', 'WEB'),
-(3, 'operador', 'WEB'),
-(4, 'sereno', 'MOVIL'),
-(5, 'almacenero', 'MOVIL'),
-(6, 'supervisor', 'WEB');
+-- 3. Insertar roles base con los sistemas correctos que esperan las APIs
+-- WEB: panel web | APP_SERENO: app movil del sereno | APP_ALMACEN: app del almacenero
+INSERT IGNORE INTO rol (nombre, sistema) VALUES
+('superadmin', 'WEB'),
+('admin', 'WEB'),
+('operador', 'WEB'),
+('supervisor', 'WEB'),
+('sereno', 'APP_SERENO'),
+('supervisor_sereno', 'APP_SERENO'),
+('almacenero', 'APP_ALMACEN'),
+('logistica', 'APP_ALMACEN');
 
 -- 4. Asignar rol superadmin al usuario admin (busca por nombre, no por id fijo)
 INSERT IGNORE INTO usuario_rol (id_usuario, id_rol)
