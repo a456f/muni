@@ -49,16 +49,10 @@ else
     cd muni
 fi
 
-# 7. Importar schema y tablas adicionales
+# 7. Importar schema completo
 echo "[7/8] Importando base de datos..."
-if [ -f "backend/sql/schema_completo.sql" ]; then
-    mysql -u appuser -p123456 sistema_denuncias < backend/sql/schema_completo.sql || true
-fi
-if [ -f "backend/sql/extra_tables.sql" ]; then
-    mysql -u appuser -p123456 sistema_denuncias < backend/sql/extra_tables.sql || true
-fi
-if [ -f "backend/sql/seed_admin.sql" ]; then
-    mysql -u appuser -p123456 sistema_denuncias < backend/sql/seed_admin.sql || true
+if [ -f "backend/sql/full_schema.sql" ]; then
+    mysql -u appuser -p123456 sistema_denuncias < backend/sql/full_schema.sql
 fi
 
 # 8. Instalar dependencias y compilar
