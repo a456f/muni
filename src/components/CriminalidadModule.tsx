@@ -161,7 +161,14 @@ const CriminalidadModule: React.FC = () => {
   const [busquedaCamara, setBusquedaCamara] = useState('');
   const [camaraSeleccionada, setCamaraSeleccionada] = useState<any>(null);
   const [camaraDetalle, setCamaraDetalle] = useState<any>(null);
-  const [datosInstalacion, setDatosInstalacion] = useState({ direccion: '', referencia: '', estado: 'ACTIVA', stream_url: '', stream_user: '', stream_password: '' });
+  // URL del servidor autoconfigurada (IP del VPS + puerto del backend)
+  const SERVIDOR_DEFAULT = (() => {
+    if (typeof window !== 'undefined' && window.location.hostname) {
+      return `${window.location.hostname}:3001`;
+    }
+    return '177.7.43.144:3001';
+  })();
+  const [datosInstalacion, setDatosInstalacion] = useState({ direccion: '', referencia: '', estado: 'ACTIVA', stream_url: SERVIDOR_DEFAULT, stream_user: '', stream_password: '' });
   const [verEnVivo, setVerEnVivo] = useState<any>(null);
   const [framePreview, setFramePreview] = useState<string | null>(null);
   const [filtroTipo, setFiltroTipo] = useState<number | null>(null);
@@ -518,7 +525,7 @@ const CriminalidadModule: React.FC = () => {
         setCamaraSeleccionada(null);
         setUbicacionSeleccionada(null);
         setBusquedaCamara('');
-        setDatosInstalacion({ direccion: '', referencia: '', estado: 'ACTIVA', stream_url: '', stream_user: '', stream_password: '' });
+        setDatosInstalacion({ direccion: '', referencia: '', estado: 'ACTIVA', stream_url: SERVIDOR_DEFAULT, stream_user: '', stream_password: '' });
         fetchCamaras();
       } else {
         const err = await res.json();
@@ -982,11 +989,11 @@ const CriminalidadModule: React.FC = () => {
                     <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#374151', marginBottom: 4 }}>Conexión de transmisión</div>
                     <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginBottom: 10 }}>Datos para que el celular pueda conectarse y transmitir video</div>
 
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>IP / URL del servidor</label>
-                    <input type="text" placeholder="Ej: 177.7.43.144:3001"
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>IP / URL del servidor (autodetectado)</label>
+                    <input type="text"
                       value={datosInstalacion.stream_url}
-                      onChange={e => setDatosInstalacion({ ...datosInstalacion, stream_url: e.target.value })}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: '0.9rem', marginBottom: 12, marginTop: 4, boxSizing: 'border-box' }} />
+                      readOnly
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: '0.9rem', marginBottom: 12, marginTop: 4, boxSizing: 'border-box', background: '#f3f4f6', color: '#6b7280' }} />
 
                     <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Usuario</label>
                     <input type="text" placeholder="Ej: cam001"
