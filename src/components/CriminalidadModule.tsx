@@ -222,13 +222,23 @@ const CriminalidadModule: React.FC = () => {
         { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#394175' }] },
         { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#394175' }] },
         { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1a40' }] },
-        { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#1f2544' }] },
         { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#1a2e1a' }] },
         { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2d3250' }] },
+        // OCULTAR todos los iconos POI de Google (negocios, restaurantes, etc.)
+        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+        { featureType: 'poi.business', stylers: [{ visibility: 'off' }] },
+        { featureType: 'poi.medical', stylers: [{ visibility: 'off' }] },
+        { featureType: 'poi.school', stylers: [{ visibility: 'off' }] },
+        { featureType: 'poi.attraction', stylers: [{ visibility: 'off' }] },
+        { featureType: 'poi.government', stylers: [{ visibility: 'off' }] },
+        { featureType: 'poi.place_of_worship', stylers: [{ visibility: 'off' }] },
+        { featureType: 'poi.sports_complex', stylers: [{ visibility: 'off' }] },
+        { featureType: 'transit.station', stylers: [{ visibility: 'off' }] },
       ],
-      mapTypeControl: true,
+      mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: true,
+      clickableIcons: false,
     });
 
     googleMapRef.current = map;
@@ -1089,35 +1099,107 @@ const CriminalidadModule: React.FC = () => {
         </div>
       )}
 
-      {/* Modal: Ver en vivo */}
+      {/* Modal: Ver en vivo - Estilo CCTV profesional */}
       {verEnVivo && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => { setVerEnVivo(null); setFramePreview(null); }}>
-          <div style={{ background: '#000', borderRadius: 12, width: '100%', maxWidth: 800, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: 14, background: '#111', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ width: 10, height: 10, background: '#dc2626', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.5s infinite' }}></span>
-                  EN VIVO &middot; {verEnVivo.descripcion}
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)',
+          zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          backdropFilter: 'blur(4px)'
+        }} onClick={() => { setVerEnVivo(null); setFramePreview(null); }}>
+          <div style={{
+            background: '#0a0e1a', borderRadius: 16, width: '100%', maxWidth: 900,
+            overflow: 'hidden', border: '1px solid #1f2937', boxShadow: '0 0 60px rgba(220,38,38,0.2)'
+          }} onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{
+              padding: '14px 20px', background: 'linear-gradient(135deg, #1f2937, #111827)',
+              borderBottom: '1px solid #374151', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {/* Indicador en vivo pulsante */}
+                <div style={{ position: 'relative' }}>
+                  <span style={{
+                    width: 12, height: 12, background: '#dc2626', borderRadius: '50%',
+                    display: 'inline-block', boxShadow: '0 0 12px #dc2626'
+                  }}></span>
+                  <span style={{
+                    position: 'absolute', inset: 0, width: 12, height: 12, background: '#dc2626',
+                    borderRadius: '50%', animation: 'panicoPulse 1.5s infinite', opacity: 0.6
+                  }}></span>
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: 2 }}>
-                  Canal: cam_{verEnVivo.id} &middot; {verEnVivo.direccion || 'Sin dirección'}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      padding: '2px 8px', background: '#dc2626', color: '#fff',
+                      fontSize: '0.7rem', fontWeight: 800, borderRadius: 4, letterSpacing: 1
+                    }}>EN VIVO</span>
+                    <span style={{ color: '#fff', fontSize: '1rem', fontWeight: 700 }}>Cámara IP</span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 3 }}>
+                    {verEnVivo.descripcion} &middot; {verEnVivo.direccion || 'Sin dirección'}
+                  </div>
                 </div>
               </div>
-              <button onClick={() => { setVerEnVivo(null); setFramePreview(null); }} style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>Cerrar</button>
+              <button onClick={() => { setVerEnVivo(null); setFramePreview(null); }} style={{
+                background: 'transparent', color: '#94a3b8', border: '1px solid #374151',
+                padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem'
+              }}>✕ Cerrar</button>
             </div>
-            <div style={{ minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+
+            {/* Video */}
+            <div style={{
+              minHeight: 460, background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              position: 'relative', overflow: 'hidden'
+            }}>
               {framePreview ? (
-                <img src={framePreview} alt="Cámara en vivo" style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }} />
+                <>
+                  <img src={framePreview} alt="Cámara en vivo" style={{ width: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
+                  {/* Overlay esquinas estilo CCTV */}
+                  <div style={{ position: 'absolute', top: 12, left: 12, color: '#dc2626', fontFamily: 'monospace', fontSize: '0.78rem', fontWeight: 700, textShadow: '0 0 4px #000' }}>
+                    ● REC
+                  </div>
+                  <div style={{ position: 'absolute', top: 12, right: 12, color: '#fff', fontFamily: 'monospace', fontSize: '0.75rem', textShadow: '0 0 4px #000' }}>
+                    {new Date().toLocaleString()}
+                  </div>
+                  <div style={{ position: 'absolute', bottom: 12, left: 12, color: '#22c55e', fontFamily: 'monospace', fontSize: '0.7rem', fontWeight: 600, textShadow: '0 0 4px #000' }}>
+                    CAM-{String(verEnVivo.id).padStart(3, '0')}
+                  </div>
+                </>
               ) : (
                 <div style={{ color: '#fff', textAlign: 'center', padding: 60 }}>
-                  <div style={{ fontSize: '1rem', marginBottom: 8 }}>Esperando transmisión...</div>
+                  <div style={{
+                    width: 60, height: 60, borderRadius: '50%', border: '3px solid #374151',
+                    borderTopColor: '#dc2626', margin: '0 auto 16px', animation: 'spin 1s linear infinite'
+                  }}></div>
+                  <div style={{ fontSize: '1rem', marginBottom: 8, fontWeight: 600 }}>Esperando transmisión...</div>
                   <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Asegúrese que la app del celular esté conectada</div>
                 </div>
               )}
             </div>
-            <div style={{ padding: 12, background: '#1f2937', color: '#9ca3af', fontSize: '0.78rem' }}>
-              <strong style={{ color: '#fff' }}>Conexión:</strong> {verEnVivo.stream_url || 'Sin URL'} &middot;
-              <strong style={{ color: '#fff' }}> Usuario:</strong> {verEnVivo.stream_user || '-'}
+
+            {/* Footer info */}
+            <div style={{
+              padding: '12px 20px', background: '#111827', borderTop: '1px solid #374151',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8
+            }}>
+              <div style={{ display: 'flex', gap: 16, fontSize: '0.75rem', color: '#94a3b8' }}>
+                <div>
+                  <span style={{ color: '#6b7280' }}>SERVIDOR </span>
+                  <span style={{ color: '#fff', fontFamily: 'monospace' }}>{verEnVivo.stream_url || '-'}</span>
+                </div>
+                <div>
+                  <span style={{ color: '#6b7280' }}>USER </span>
+                  <span style={{ color: '#fff', fontFamily: 'monospace' }}>{verEnVivo.stream_user || '-'}</span>
+                </div>
+                <div>
+                  <span style={{ color: '#6b7280' }}>CANAL </span>
+                  <span style={{ color: '#22c55e', fontFamily: 'monospace' }}>cam_{verEnVivo.id}</span>
+                </div>
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#6b7280', fontFamily: 'monospace' }}>
+                {framePreview ? '🟢 STREAM ACTIVO' : '🔴 SIN SEÑAL'}
+              </div>
             </div>
           </div>
         </div>

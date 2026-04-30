@@ -199,6 +199,12 @@
   font-size: 0.85rem;
 }
 
+/* Spinner para visor de cámara */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ══════════════════════════════════════
    SIRENA PERSISTENTE EN HEADER
    ══════════════════════════════════════ */
