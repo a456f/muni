@@ -258,12 +258,20 @@ CREATE TABLE IF NOT EXISTS camaras_instaladas (
     direccion VARCHAR(255),
     referencia VARCHAR(255),
     estado ENUM('ACTIVA','INACTIVA','MANTENIMIENTO','DAÑADA') DEFAULT 'ACTIVA',
+    stream_url VARCHAR(255) NULL,
+    stream_user VARCHAR(100) NULL,
+    stream_password VARCHAR(255) NULL,
     fecha_instalacion DATETIME DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion DATETIME NULL,
     observacion TEXT,
     UNIQUE KEY unique_equipo (equipo_id),
     INDEX idx_estado (estado)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Si la tabla ya existe, agregar columnas
+ALTER TABLE camaras_instaladas ADD COLUMN IF NOT EXISTS stream_url VARCHAR(255) NULL;
+ALTER TABLE camaras_instaladas ADD COLUMN IF NOT EXISTS stream_user VARCHAR(100) NULL;
+ALTER TABLE camaras_instaladas ADD COLUMN IF NOT EXISTS stream_password VARCHAR(255) NULL;
 
 -- ===== PATRULLAJE =====
 

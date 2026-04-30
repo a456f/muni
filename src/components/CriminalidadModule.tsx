@@ -161,7 +161,9 @@ const CriminalidadModule: React.FC = () => {
   const [busquedaCamara, setBusquedaCamara] = useState('');
   const [camaraSeleccionada, setCamaraSeleccionada] = useState<any>(null);
   const [camaraDetalle, setCamaraDetalle] = useState<any>(null);
-  const [datosInstalacion, setDatosInstalacion] = useState({ direccion: '', referencia: '', estado: 'ACTIVA' });
+  const [datosInstalacion, setDatosInstalacion] = useState({ direccion: '', referencia: '', estado: 'ACTIVA', stream_url: '', stream_user: '', stream_password: '' });
+  const [verEnVivo, setVerEnVivo] = useState<any>(null);
+  const [framePreview, setFramePreview] = useState<string | null>(null);
   const [filtroTipo, setFiltroTipo] = useState<number | null>(null);
   const [filtroPeriodo, setFiltroPeriodo] = useState('90');
   const [selectedIncidencia, setSelectedIncidencia] = useState<any>(null);
@@ -418,6 +420,24 @@ const CriminalidadModule: React.FC = () => {
   }, []);
 
   useEffect(() => { fetchCamaras(); }, [fetchCamaras]);
+
+  // Socket.io para recibir frames de cámara en vivo
+  useEffect(() => {
+    if (!verEnVivo) return;
+    let socket: any = null;
+    (async () => {
+      const { io } = await import('socket.io-client');
+      const baseUrl = API_URL.replace(/\/api\/?$/, '');
+      socket = io(baseUrl, { transports: ['websocket', 'polling'] });
+      socket.on('connect', () => {
+        socket.emit('join_camera', `cam_${verEnVivo.id}`);
+      });
+      socket.on(`cam_frame_${verEnVivo.id}`, (data: any) => {
+        if (data?.frame) setFramePreview(data.frame);
+      });
+    })();
+    return () => { if (socket) socket.disconnect(); };
+  }, [verEnVivo]);
 
   // Buscar cámaras disponibles
   const buscarCamarasDisponibles = useCallback(async (q: string) => {
@@ -952,11 +972,34 @@ const CriminalidadModule: React.FC = () => {
                   <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Estado</label>
                   <select value={datosInstalacion.estado}
                     onChange={e => setDatosInstalacion({ ...datosInstalacion, estado: e.target.value })}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: '0.9rem', marginTop: 4, boxSizing: 'border-box' }}>
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: '0.9rem', marginTop: 4, marginBottom: 16, boxSizing: 'border-box' }}>
                     <option value="ACTIVA">ACTIVA</option>
                     <option value="INACTIVA">INACTIVA</option>
                     <option value="MANTENIMIENTO">EN MANTENIMIENTO</option>
                   </select>
+
+                  <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 14, marginTop: 4 }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#374151', marginBottom: 4 }}>Conexión de transmisión</div>
+                    <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginBottom: 10 }}>Datos para que el celular pueda conectarse y transmitir video</div>
+
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>IP / URL del servidor</label>
+                    <input type="text" placeholder="Ej: 177.7.43.144:3001"
+                      value={datosInstalacion.stream_url}
+                      onChange={e => setDatosInstalacion({ ...datosInstalacion, stream_url: e.target.value })}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: '0.9rem', marginBottom: 12, marginTop: 4, boxSizing: 'border-box' }} />
+
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Usuario</label>
+                    <input type="text" placeholder="Ej: cam001"
+                      value={datosInstalacion.stream_user}
+                      onChange={e => setDatosInstalacion({ ...datosInstalacion, stream_user: e.target.value })}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: '0.9rem', marginBottom: 12, marginTop: 4, boxSizing: 'border-box' }} />
+
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>Contraseña</label>
+                    <input type="text" placeholder="Contraseña"
+                      value={datosInstalacion.stream_password}
+                      onChange={e => setDatosInstalacion({ ...datosInstalacion, stream_password: e.target.value })}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e5e7eb', fontSize: '0.9rem', marginTop: 4, boxSizing: 'border-box' }} />
+                  </div>
                 </div>
               )}
             </div>
@@ -1012,20 +1055,62 @@ const CriminalidadModule: React.FC = () => {
                 </select>
               </div>
             </div>
-            <div style={{ padding: 16, borderTop: '1px solid #e5e7eb', display: 'flex', gap: 8 }}>
+            <div style={{ padding: 16, borderTop: '1px solid #e5e7eb', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => { setVerEnVivo(camaraDetalle); setCamaraDetalle(null); }} style={{
+                flex: 1, padding: '8px 14px', borderRadius: 8, border: 'none',
+                background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+              }}>
+                <span style={{ width: 8, height: 8, background: '#fff', borderRadius: '50%' }}></span>
+                Ver en vivo
+              </button>
+              <a href={`https://www.google.com/maps?q=${camaraDetalle.latitud},${camaraDetalle.longitud}`} target="_blank" rel="noopener noreferrer" style={{
+                padding: '8px 14px', borderRadius: 8, border: 'none',
+                background: '#1e40af', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
+                textDecoration: 'none'
+              }}>Mapa</a>
               <button onClick={() => eliminarCamara(camaraDetalle.id)} style={{
                 padding: '8px 14px', borderRadius: 8, border: '1px solid #fecaca',
                 background: '#fff', color: '#dc2626', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem'
               }}>Remover</button>
-              <a href={`https://www.google.com/maps?q=${camaraDetalle.latitud},${camaraDetalle.longitud}`} target="_blank" rel="noopener noreferrer" style={{
-                flex: 1, padding: '8px 14px', borderRadius: 8, border: 'none',
-                background: '#1e40af', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem',
-                textDecoration: 'none', textAlign: 'center'
-              }}>Ver en Google Maps</a>
               <button onClick={() => setCamaraDetalle(null)} style={{
                 padding: '8px 14px', borderRadius: 8, border: 'none',
                 background: '#374151', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem'
               }}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Ver en vivo */}
+      {verEnVivo && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => { setVerEnVivo(null); setFramePreview(null); }}>
+          <div style={{ background: '#000', borderRadius: 12, width: '100%', maxWidth: 800, overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: 14, background: '#111', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 10, height: 10, background: '#dc2626', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.5s infinite' }}></span>
+                  EN VIVO &middot; {verEnVivo.descripcion}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: 2 }}>
+                  Canal: cam_{verEnVivo.id} &middot; {verEnVivo.direccion || 'Sin dirección'}
+                </div>
+              </div>
+              <button onClick={() => { setVerEnVivo(null); setFramePreview(null); }} style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>Cerrar</button>
+            </div>
+            <div style={{ minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {framePreview ? (
+                <img src={framePreview} alt="Cámara en vivo" style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain' }} />
+              ) : (
+                <div style={{ color: '#fff', textAlign: 'center', padding: 60 }}>
+                  <div style={{ fontSize: '1rem', marginBottom: 8 }}>Esperando transmisión...</div>
+                  <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Asegúrese que la app del celular esté conectada</div>
+                </div>
+              )}
+            </div>
+            <div style={{ padding: 12, background: '#1f2937', color: '#9ca3af', fontSize: '0.78rem' }}>
+              <strong style={{ color: '#fff' }}>Conexión:</strong> {verEnVivo.stream_url || 'Sin URL'} &middot;
+              <strong style={{ color: '#fff' }}> Usuario:</strong> {verEnVivo.stream_user || '-'}
             </div>
           </div>
         </div>

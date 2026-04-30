@@ -66,25 +66,24 @@ router.get('/disponibles', async (req, res) => {
 
 // Instalar cámara en una ubicación
 router.post('/', async (req, res) => {
-    const { equipo_id, latitud, longitud, direccion, referencia, estado } = req.body;
+    const { equipo_id, latitud, longitud, direccion, referencia, estado, stream_url, stream_user, stream_password } = req.body;
 
     if (!equipo_id || !latitud || !longitud) {
         return res.status(400).json({ message: 'equipo_id, latitud y longitud son requeridos.' });
     }
 
     try {
-        // Verificar que el equipo exista
         const [[equipo]] = await db.query("SELECT id, descripcion FROM equipos WHERE id = ?", [equipo_id]);
         if (!equipo) return res.status(404).json({ message: 'Equipo no encontrado.' });
 
-        // Verificar que no esté instalada ya
         const [[existe]] = await db.query("SELECT id FROM camaras_instaladas WHERE equipo_id = ?", [equipo_id]);
         if (existe) return res.status(409).json({ message: 'Esta cámara ya está instalada en el mapa.' });
 
         const [result] = await db.query(
-            `INSERT INTO camaras_instaladas (equipo_id, latitud, longitud, direccion, referencia, estado)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [equipo_id, latitud, longitud, direccion || null, referencia || null, estado || 'ACTIVA']
+            `INSERT INTO camaras_instaladas (equipo_id, latitud, longitud, direccion, referencia, estado, stream_url, stream_user, stream_password)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [equipo_id, latitud, longitud, direccion || null, referencia || null, estado || 'ACTIVA',
+             stream_url || null, stream_user || null, stream_password || null]
         );
 
         res.status(201).json({
@@ -97,9 +96,40 @@ router.post('/', async (req, res) => {
     }
 });
 
+// Login de la app de la cámara (celular se autentica)
+router.post('/auth', async (req, res) => {
+    const { camara_id, usuario, password } = req.body;
+
+    if (!camara_id || !usuario || !password) {
+        return res.status(400).json({ message: 'camara_id, usuario y password son requeridos.' });
+    }
+
+    try {
+        const [[cam]] = await db.query(`
+            SELECT c.id, c.stream_user, c.stream_password, e.descripcion
+            FROM camaras_instaladas c
+            JOIN equipos e ON c.equipo_id = e.id
+            WHERE c.id = ?
+        `, [camara_id]);
+
+        if (!cam) return res.status(404).json({ message: 'Cámara no encontrada.' });
+        if (cam.stream_user !== usuario || cam.stream_password !== password) {
+            return res.status(401).json({ message: 'Credenciales incorrectas.' });
+        }
+
+        res.json({
+            message: 'Autenticado',
+            camara: { id: cam.id, descripcion: cam.descripcion },
+            channel: `cam_${cam.id}`  // El celular emite frames a este canal
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Actualizar estado, ubicación o datos de una cámara
 router.put('/:id', async (req, res) => {
-    const { latitud, longitud, direccion, referencia, estado, observacion } = req.body;
+    const { latitud, longitud, direccion, referencia, estado, observacion, stream_url, stream_user, stream_password } = req.body;
     try {
         const fields = [];
         const values = [];
@@ -109,6 +139,9 @@ router.put('/:id', async (req, res) => {
         if (referencia !== undefined) { fields.push('referencia = ?'); values.push(referencia); }
         if (estado !== undefined) { fields.push('estado = ?'); values.push(estado); }
         if (observacion !== undefined) { fields.push('observacion = ?'); values.push(observacion); }
+        if (stream_url !== undefined) { fields.push('stream_url = ?'); values.push(stream_url); }
+        if (stream_user !== undefined) { fields.push('stream_user = ?'); values.push(stream_user); }
+        if (stream_password !== undefined) { fields.push('stream_password = ?'); values.push(stream_password); }
 
         if (fields.length === 0) return res.status(400).json({ message: 'No hay campos a actualizar.' });
 

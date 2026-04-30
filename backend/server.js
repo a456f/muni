@@ -1633,6 +1633,21 @@ app.get('/api/supervisores/historial', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ===== SOCKET.IO: streaming de cámaras =====
+io.on('connection', (socket) => {
+  // Cliente web se une a un canal de cámara para recibir frames
+  socket.on('join_camera', (channel) => {
+    socket.join(channel);
+  });
+
+  // App del celular envía frame al servidor
+  socket.on('cam_frame', (data) => {
+    if (data?.cam_id && data?.frame) {
+      io.to(`cam_${data.cam_id}`).emit(`cam_frame_${data.cam_id}`, { frame: data.frame });
+    }
+  });
+});
+
 httpServer.listen(port, () => {
   console.log(`Servidor Node.js corriendo en http://localhost:${port}`);
 });
