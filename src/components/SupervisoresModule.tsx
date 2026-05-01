@@ -388,7 +388,7 @@ const SupervisoresModule = () => {
                     </td>
                     <td style={{ fontWeight: 500 }}>{h.nombre_supervisor}</td>
                     <td>{h.nombre_sereno}</td>
-                    <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.detalle}</td>
+                    <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)', maxWidth: 380, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.4 }} title={h.detalle}>{h.detalle}</td>
                   </tr>
                 ))}
                 {paginatedHistorial.length === 0 && (
