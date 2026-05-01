@@ -200,6 +200,20 @@ const PersonalModule = ({ title = 'Gestion de Personal y Accesos' }: PersonalMod
     event.preventDefault();
     setError('');
 
+    // Validación DNI peruano: 8 dígitos exactos (si se ingresa)
+    if (form.dni.trim() && !/^\d{8}$/.test(form.dni.trim())) {
+      setError('El DNI debe tener exactamente 8 dígitos numéricos.');
+      showNotification('El DNI debe tener 8 dígitos.', 'error');
+      return;
+    }
+
+    // Validación teléfono peruano (opcional, 9 dígitos empezando en 9)
+    if (form.telefono.trim() && !/^9\d{8}$/.test(form.telefono.trim())) {
+      setError('El teléfono debe tener 9 dígitos y empezar con 9.');
+      showNotification('Teléfono inválido. Debe ser 9 dígitos empezando con 9.', 'error');
+      return;
+    }
+
     const url = editingId ? `${API_URL}/personal/${editingId}` : `${API_URL}/personal`;
     const method = editingId ? 'PUT' : 'POST';
 
@@ -477,16 +491,32 @@ const PersonalModule = ({ title = 'Gestion de Personal y Accesos' }: PersonalMod
                         <input placeholder="Apellidos" value={form.apellidos} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} required />
                       </label>
                       <label className="personal-field">
-                        <span>DNI</span>
-                        <input placeholder="00000000" value={form.dni} onChange={(e) => setForm({ ...form, dni: e.target.value })} />
+                        <span>DNI {form.dni.length > 0 && form.dni.length !== 8 && <span style={{ color: '#dc2626', fontSize: '0.7rem' }}>· {form.dni.length}/8</span>}</span>
+                        <input
+                          placeholder="00000000"
+                          value={form.dni}
+                          inputMode="numeric"
+                          maxLength={8}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, '').slice(0, 8);
+                            setForm({ ...form, dni: v });
+                          }} />
                       </label>
                       <label className="personal-field">
                         <span>Correo</span>
                         <input placeholder="correo@empresa.com" type="email" value={form.correo} onChange={(e) => setForm({ ...form, correo: e.target.value })} />
                       </label>
                       <label className="personal-field">
-                        <span>Telefono</span>
-                        <input placeholder="999999999" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
+                        <span>Telefono {form.telefono.length > 0 && form.telefono.length !== 9 && <span style={{ color: '#dc2626', fontSize: '0.7rem' }}>· {form.telefono.length}/9</span>}</span>
+                        <input
+                          placeholder="9XXXXXXXX"
+                          value={form.telefono}
+                          inputMode="numeric"
+                          maxLength={9}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, '').slice(0, 9);
+                            setForm({ ...form, telefono: v });
+                          }} />
                       </label>
                       <label className="personal-field personal-field-full">
                         <span>Direccion</span>

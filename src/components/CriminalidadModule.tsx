@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { API_URL } from '../config/api';
+import Notification from '../hooks/Notification';
+import { useNotification } from './useNotification';
 
 // ====== DATOS SIMULADOS ======
 
@@ -154,6 +156,8 @@ const CriminalidadModule: React.FC = () => {
   const [showHospitales, setShowHospitales] = useState(true);
   const [showCamaras, setShowCamaras] = useState(true);
   const [camaras, setCamaras] = useState<any[]>([]);
+  const { notification, showNotification, hideNotification } = useNotification();
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [modoAgregarCamara, setModoAgregarCamara] = useState(false);
   const [ubicacionSeleccionada, setUbicacionSeleccionada] = useState<{lat: number, lng: number} | null>(null);
   const [modalCamaraAbierto, setModalCamaraAbierto] = useState(false);
@@ -544,9 +548,9 @@ const CriminalidadModule: React.FC = () => {
         fetchCamaras();
       } else {
         const err = await res.json();
-        alert(err.message || 'Error al instalar cámara');
+        showNotification(err.message || 'Error al instalar cámara', 'error');
       }
-    } catch { alert('Error de conexión'); }
+    } catch { showNotification('Error de conexión', 'error'); }
   };
 
   // Cambiar estado de cámara
@@ -562,12 +566,21 @@ const CriminalidadModule: React.FC = () => {
   };
 
   // Eliminar cámara
-  const eliminarCamara = async (id: number) => {
-    if (!confirm('¿Eliminar esta cámara del mapa? Volverá a estar disponible en almacén.')) return;
-    try {
-      const res = await fetch(`${API_URL}/camaras/${id}`, { method: 'DELETE' });
-      if (res.ok) { setCamaraDetalle(null); fetchCamaras(); }
-    } catch {}
+  const eliminarCamara = (id: number) => {
+    setConfirmDialog({
+      message: '¿Eliminar esta cámara del mapa? Volverá a estar disponible en almacén.',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          const res = await fetch(`${API_URL}/camaras/${id}`, { method: 'DELETE' });
+          if (res.ok) {
+            setCamaraDetalle(null);
+            fetchCamaras();
+            showNotification('Cámara eliminada del mapa', 'success');
+          }
+        } catch { showNotification('Error de conexión', 'error'); }
+      }
+    });
   };
 
   // Barra de stats rápida
@@ -1205,6 +1218,39 @@ const CriminalidadModule: React.FC = () => {
               <div style={{ fontSize: '0.7rem', color: '#6b7280', fontFamily: 'monospace' }}>
                 {framePreview ? '🟢 STREAM ACTIVO' : '🔴 SIN SEÑAL'}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sistema de notificaciones */}
+      <Notification notification={notification} onClose={hideNotification} />
+
+      {/* Modal de confirmación */}
+      {confirmDialog && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 10001,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+        }} onClick={() => setConfirmDialog(null)}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: 20, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: '0 0 6px', fontSize: '1rem' }}>Confirmar acción</h3>
+                <p style={{ margin: 0, fontSize: '0.88rem', color: '#6b7280' }}>{confirmDialog.message}</p>
+              </div>
+            </div>
+            <div style={{ padding: '0 20px 16px', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConfirmDialog(null)} style={{
+                padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb',
+                background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem'
+              }}>Cancelar</button>
+              <button onClick={confirmDialog.onConfirm} style={{
+                padding: '8px 18px', borderRadius: 8, border: 'none',
+                background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem'
+              }}>Confirmar</button>
             </div>
           </div>
         </div>
