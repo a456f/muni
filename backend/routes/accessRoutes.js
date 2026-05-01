@@ -166,8 +166,14 @@ router.post('/personal', async (req, res) => {
     roleIds = []
   } = req.body;
 
-  if (!codigo_personal || !nombres || !apellidos) {
-    return res.status(400).json({ error: 'Codigo de personal, nombres y apellidos son obligatorios.' });
+  if (!codigo_personal || !nombres || !apellidos || !dni || !correo || !telefono || !direccion) {
+    return res.status(400).json({ error: 'Todos los datos personales son obligatorios.' });
+  }
+  if (!/^\d{8}$/.test(dni)) {
+    return res.status(400).json({ error: 'El DNI debe tener 8 dígitos.' });
+  }
+  if (!/^9\d{8}$/.test(telefono)) {
+    return res.status(400).json({ error: 'El teléfono debe tener 9 dígitos y empezar con 9.' });
   }
 
   const connection = await db.getConnection();

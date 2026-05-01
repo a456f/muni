@@ -497,6 +497,7 @@ const PersonalModule = ({ title = 'Gestion de Personal y Accesos' }: PersonalMod
                           value={form.dni}
                           inputMode="numeric"
                           maxLength={8}
+                          required
                           onChange={(e) => {
                             const v = e.target.value.replace(/\D/g, '').slice(0, 8);
                             setForm({ ...form, dni: v });
@@ -504,7 +505,7 @@ const PersonalModule = ({ title = 'Gestion de Personal y Accesos' }: PersonalMod
                       </label>
                       <label className="personal-field">
                         <span>Correo</span>
-                        <input placeholder="correo@empresa.com" type="email" value={form.correo} onChange={(e) => setForm({ ...form, correo: e.target.value })} />
+                        <input placeholder="correo@empresa.com" type="email" required value={form.correo} onChange={(e) => setForm({ ...form, correo: e.target.value })} />
                       </label>
                       <label className="personal-field">
                         <span>Telefono {form.telefono.length > 0 && form.telefono.length !== 9 && <span style={{ color: '#dc2626', fontSize: '0.7rem' }}>· {form.telefono.length}/9</span>}</span>
@@ -513,6 +514,7 @@ const PersonalModule = ({ title = 'Gestion de Personal y Accesos' }: PersonalMod
                           value={form.telefono}
                           inputMode="numeric"
                           maxLength={9}
+                          required
                           onChange={(e) => {
                             const v = e.target.value.replace(/\D/g, '').slice(0, 9);
                             setForm({ ...form, telefono: v });
@@ -520,7 +522,7 @@ const PersonalModule = ({ title = 'Gestion de Personal y Accesos' }: PersonalMod
                       </label>
                       <label className="personal-field personal-field-full">
                         <span>Direccion</span>
-                        <input placeholder="Direccion" value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} />
+                        <input placeholder="Direccion" value={form.direccion} required onChange={(e) => setForm({ ...form, direccion: e.target.value })} />
                       </label>
                     </div>
                   </section>
