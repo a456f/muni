@@ -55,12 +55,24 @@
   align-items: start;
 }
 
+.personal-modal > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .personal-modal .modal-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   padding-top: 1rem;
   padding-bottom: 0.85rem;
+}
+
+.personal-modal .modal-footer {
+  flex-shrink: 0;
 }
 
 .personal-section {
