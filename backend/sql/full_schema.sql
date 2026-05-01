@@ -269,9 +269,8 @@ CREATE TABLE IF NOT EXISTS camaras_instaladas (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Si la tabla ya existe, agregar columnas
-ALTER TABLE camaras_instaladas ADD COLUMN IF NOT EXISTS stream_url VARCHAR(255) NULL;
-ALTER TABLE camaras_instaladas ADD COLUMN IF NOT EXISTS stream_user VARCHAR(100) NULL;
-ALTER TABLE camaras_instaladas ADD COLUMN IF NOT EXISTS stream_password VARCHAR(255) NULL;
+-- Las columnas ya están en CREATE TABLE arriba, esto es solo para upgrades de schemas viejos
+-- Si dan error duplicate column, ignorar (significa que ya existen)
 
 -- ===== PATRULLAJE =====
 
