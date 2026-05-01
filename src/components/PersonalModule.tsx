@@ -385,7 +385,7 @@ const PersonalModule = ({ title = 'Gestion de Personal y Accesos' }: PersonalMod
           {paginatedPersonal.map((item) => (
             <tr key={item.id_personal}>
               <td>{item.codigo_personal}</td>
-              <td>{item.nombres} {item.apellidos}</td>
+              <td style={{ textTransform: 'uppercase' }}>{item.nombres} {item.apellidos}</td>
               <td>{item.dni || '-'}</td>
               <td>{item.username || 'Sin cuenta'}</td>
               <td>{item.roles.length > 0 ? item.roles.join(', ') : 'Sin roles'}</td>
@@ -484,11 +484,11 @@ const PersonalModule = ({ title = 'Gestion de Personal y Accesos' }: PersonalMod
                       </label>
                       <label className="personal-field">
                         <span>Nombres</span>
-                        <input placeholder="Nombres" value={form.nombres} onChange={(e) => setForm({ ...form, nombres: e.target.value })} required />
+                        <input placeholder="Nombres" value={form.nombres} style={{ textTransform: 'uppercase' }} onChange={(e) => setForm({ ...form, nombres: e.target.value })} required />
                       </label>
                       <label className="personal-field">
                         <span>Apellidos</span>
-                        <input placeholder="Apellidos" value={form.apellidos} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} required />
+                        <input placeholder="Apellidos" value={form.apellidos} style={{ textTransform: 'uppercase' }} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} required />
                       </label>
                       <label className="personal-field">
                         <span>DNI {form.dni.length > 0 && form.dni.length !== 8 && <span style={{ color: '#dc2626', fontSize: '0.7rem' }}>· {form.dni.length}/8</span>}</span>
