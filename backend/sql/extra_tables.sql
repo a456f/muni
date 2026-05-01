@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS denuncias_ciudadano (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Fotos de denuncias del ciudadano
-CREATE TABLE IF NOT EXISTS fotos_denuncia_ciudadano (
+CREATE TABLE IF NOT EXISTS fotos_denuncia (
     id INT AUTO_INCREMENT PRIMARY KEY,
     denuncia_id INT NOT NULL,
     ruta VARCHAR(255) NOT NULL,
