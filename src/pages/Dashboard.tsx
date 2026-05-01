@@ -26,6 +26,7 @@ import DenunciasCiudadanoModule from '../components/DenunciasCiudadanoModule';
 import AlertasPanicoModule from '../components/AlertasPanicoModule';
 import PatrullajeVivoModule from '../components/PatrullajeVivoModule';
 import SeguimientoAlertasModule from '../components/SeguimientoAlertasModule';
+import TurnosModule from '../components/TurnosModule';
 import { API_URL, BASE_URL } from '../config/api';
 import { io } from 'socket.io-client';
 import '../styles/RealtimeNotification.css';
@@ -555,6 +556,8 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
         return <PersonalAreasModule title="Gestión de Personal" />;
       case 'patrullaje':
         return <PatrullajeModule />;
+      case 'turnos':
+        return <TurnosModule />;
       case 'almacen':
         return <AlmacenModule />;
       case 'salud':
@@ -655,6 +658,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
                 'registro-personal': 'Registro Personal',
                 'gestion-personal': 'Gestión de Personal',
                 patrullaje: 'Patrullaje',
+                turnos: 'Turnos',
                 almacen: 'Almacén',
                 salud: 'Salud',
                 'salud-atenciones': 'Salud - Atenciones',
