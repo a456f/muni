@@ -587,6 +587,41 @@ router.put('/alertas-panico/:id/asignar', async (req, res) => {
     }
 });
 
+// Sereno acepta la alerta asignada
+router.put('/alertas-panico/:id/aceptar', async (req, res) => {
+    const { sereno_id } = req.body;
+    if (!sereno_id) return res.status(400).json({ message: 'sereno_id requerido.' });
+
+    try {
+        // Verifica que esté asignada a este sereno
+        const [[alerta]] = await db.query(
+            "SELECT * FROM alertas_panico WHERE id = ? AND sereno_id = ?",
+            [req.params.id, sereno_id]
+        );
+        if (!alerta) return res.status(404).json({ message: 'Alerta no encontrada o no asignada a usted.' });
+
+        await db.query(
+            "UPDATE alertas_panico SET estado = 'EN_CAMINO' WHERE id = ?",
+            [req.params.id]
+        );
+
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('panico_aceptado', {
+                alerta_id: parseInt(req.params.id),
+                ciudadano_id: alerta.ciudadano_id,
+                sereno_id,
+                message: 'El sereno aceptó la alerta y va en camino'
+            });
+        }
+
+        res.json({ message: 'Alerta aceptada. GPS activado.' });
+    } catch (err) {
+        console.error("Error aceptar alerta:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Cerrar alerta de pánico (resuelta)
 router.put('/alertas-panico/:id/cerrar', async (req, res) => {
     const { observacion } = req.body;
