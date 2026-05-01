@@ -34,6 +34,26 @@ const upload = multer({
 
 const SERENO_SYSTEM = 'APP_SERENO';
 
+// Storage para fotos de alertas (cuando el sereno cierra una)
+const alertaStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = 'uploads/alertas/';
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        cb(null, `alerta_${Date.now()}_${Math.random().toString(36).substr(2, 4)}${path.extname(file.originalname)}`);
+    }
+});
+const uploadAlerta = multer({
+    storage: alertaStorage,
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowed = /jpeg|jpg|png|webp/;
+        cb(null, allowed.test(path.extname(file.originalname).toLowerCase()));
+    }
+}).any();
+
 router.post('/login', async (req, res) => {
   const { usuario, password } = req.body;
 
@@ -337,6 +357,87 @@ router.get('/mis-alertas/:sereno_id', async (req, res) => {
             WHERE ap.sereno_id = ? AND ap.estado IN ('ASIGNADO', 'ACTIVO', 'EN_CAMINO')
             ORDER BY ap.fecha DESC
         `, [req.params.sereno_id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Sereno cierra una alerta con observación y fotos
+router.post('/alertas/:id/cerrar', uploadAlerta, async (req, res) => {
+    const { sereno_id, observacion } = req.body;
+    if (!sereno_id) return res.status(400).json({ message: 'sereno_id requerido.' });
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // Verificar que esté asignada al sereno
+        const [[alerta]] = await connection.query(
+            "SELECT * FROM alertas_panico WHERE id = ? AND sereno_id = ?",
+            [req.params.id, sereno_id]
+        );
+        if (!alerta) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Alerta no encontrada o no asignada a usted.' });
+        }
+
+        // Actualizar la alerta
+        await connection.query(
+            `UPDATE alertas_panico
+             SET estado = 'CERRADO', observacion = ?, fecha_atencion = COALESCE(fecha_atencion, NOW())
+             WHERE id = ?`,
+            [observacion || 'Atendida', req.params.id]
+        );
+
+        // Guardar fotos
+        const archivos = req.files || [];
+        if (archivos.length > 0) {
+            const valores = archivos.map(f => [req.params.id, sereno_id, f.path.replace(/\\/g, '/')]);
+            await connection.query(
+                `INSERT INTO fotos_alertas_panico (alerta_id, sereno_id, ruta) VALUES ?`,
+                [valores]
+            );
+        }
+
+        // Finalizar el patrullaje del sereno también
+        await connection.query(
+            `UPDATE recorridos_serenos SET estado='FINALIZADO', fecha_fin=NOW()
+             WHERE sereno_id=? AND estado='ACTIVO'`,
+            [sereno_id]
+        );
+
+        await connection.commit();
+
+        // Notificar
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('alerta_cerrada', {
+                alerta_id: parseInt(req.params.id),
+                ciudadano_id: alerta.ciudadano_id,
+                sereno_id,
+                fotos: archivos.length,
+                message: 'Alerta atendida y cerrada'
+            });
+        }
+
+        res.json({ message: 'Alerta cerrada correctamente.', fotos: archivos.length });
+    } catch (err) {
+        await connection.rollback();
+        console.error("Error cerrar alerta:", err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        connection.release();
+    }
+});
+
+// Obtener fotos de una alerta
+router.get('/alertas/:id/fotos', async (req, res) => {
+    try {
+        const [rows] = await db.query(
+            "SELECT id, ruta, fecha_subida FROM fotos_alertas_panico WHERE alerta_id = ? ORDER BY id",
+            [req.params.id]
+        );
         res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });

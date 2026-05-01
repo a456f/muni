@@ -524,6 +524,17 @@ CREATE TABLE IF NOT EXISTS alertas_panico_sereno (
     INDEX idx_estado (estado)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ===== FOTOS DE ALERTAS DE PÁNICO =====
+
+CREATE TABLE IF NOT EXISTS fotos_alertas_panico (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    alerta_id INT NOT NULL,
+    sereno_id INT NULL,
+    ruta VARCHAR(255) NOT NULL,
+    fecha_subida DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_alerta (alerta_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ===== RECORRIDOS DE SERENOS (GPS tracking) =====
 
 CREATE TABLE IF NOT EXISTS recorridos_serenos (
