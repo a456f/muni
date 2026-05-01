@@ -672,7 +672,15 @@ const SaludModule = () => {
                     </div>
 
                     <div className="full-width"><label>Dirección Ocurrencia</label><input value={form.ocurrencia.direccion} onChange={e => setForm({...form, ocurrencia: {...form.ocurrencia, direccion: e.target.value}})} placeholder="Lugar donde ocurrió el incidente" /></div>
-                    <div><label>Teléfono</label><input value={form.ocurrencia.telefono} onChange={e => setForm({...form, ocurrencia: {...form.ocurrencia, telefono: e.target.value}})} /></div>
+                    <div><label>Teléfono</label><input
+                      value={form.ocurrencia.telefono}
+                      inputMode="numeric"
+                      maxLength={9}
+                      placeholder="9XXXXXXXX"
+                      onChange={e => {
+                        const v = e.target.value.replace(/\D/g, '').slice(0, 9);
+                        setForm({...form, ocurrencia: {...form.ocurrencia, telefono: v}});
+                      }} /></div>
                     <div><label>Hora Llamada</label><input type="time" value={form.ocurrencia.hora_llamada} onChange={e => setForm({...form, ocurrencia: {...form.ocurrencia, hora_llamada: e.target.value}})} /></div>
                     <div><label>Operador</label><input value={form.ocurrencia.operador} onChange={e => setForm({...form, ocurrencia: {...form.ocurrencia, operador: e.target.value}})} /></div>
                 </div>
