@@ -471,6 +471,27 @@ router.get('/recorridos/activos', async (req, res) => {
     }
 });
 
+// Recorrido activo de un sereno (con sus puntos)
+router.get('/recorrido-activo/:sereno_id', async (req, res) => {
+    try {
+        const [[recorrido]] = await db.query(
+            `SELECT id, sereno_id, fecha_inicio FROM recorridos_serenos
+             WHERE sereno_id=? AND estado='ACTIVO' ORDER BY id DESC LIMIT 1`,
+            [req.params.sereno_id]
+        );
+        if (!recorrido) return res.json({ activo: false });
+
+        const [puntos] = await db.query(
+            `SELECT latitud, longitud, fecha FROM puntos_recorrido
+             WHERE recorrido_id=? ORDER BY id ASC`,
+            [recorrido.id]
+        );
+        res.json({ activo: true, recorrido, puntos });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Obtener puntos de un recorrido
 router.get('/recorridos/:id/puntos', async (req, res) => {
     try {
