@@ -52,7 +52,7 @@ const PatrullajeVivoModule: React.FC = () => {
     const existing = document.querySelector('script[src*="maps.googleapis.com"]');
     if (existing) { existing.addEventListener('load', () => setMapLoaded(true)); return; }
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBd4wZax8uiotmZhTqNW9NW3vGX3LAET0Y`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBd4wZax8uiotmZhTqNW9NW3vGX3LAET0Y&libraries=visualization`;
     script.async = true;
     script.onload = () => setMapLoaded(true);
     document.head.appendChild(script);

@@ -255,6 +255,11 @@ const CriminalidadModule: React.FC = () => {
     if (heatmapRef.current) heatmapRef.current.setMap(null);
 
     if (showHeatmap) {
+      // Si la biblioteca visualization no está cargada, recarga
+      if (!google.maps.visualization?.HeatmapLayer) {
+        console.warn('Google Maps visualization library not loaded. Reload the page.');
+        return;
+      }
       const heatmapData = incidenciasFiltradas.map(inc =>
         new google.maps.LatLng(inc.lat, inc.lng)
       );
