@@ -218,19 +218,13 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
     return () => clearInterval(interval);
   }, []);
 
-  // Cargar serenos cuando llega alerta de pánico
+  // Cargar serenos cuando llega alerta de pánico (solo personal con rol sereno)
   useEffect(() => {
     if (panicoAlert) {
-      fetch(`${API_URL}/serenos/activos`)
+      fetch(`${API_URL}/serenos`)
         .then(r => r.json())
         .then(data => setSerenosDisponibles(Array.isArray(data) ? data : data.data || []))
-        .catch(() => {
-          // Fallback: cargar personal de serenazgo
-          fetch(`${API_URL}/personal`)
-            .then(r => r.json())
-            .then(data => setSerenosDisponibles(Array.isArray(data) ? data : data.data || []))
-            .catch(() => setSerenosDisponibles([]));
-        });
+        .catch(() => setSerenosDisponibles([]));
     }
   }, [panicoAlert]);
 

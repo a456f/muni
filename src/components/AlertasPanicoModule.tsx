@@ -47,7 +47,8 @@ const AlertasPanicoModule: React.FC = () => {
 
   const cargarSerenos = async () => {
     try {
-      const res = await fetch(`${API_URL}/personal`);
+      // Solo serenos (rol sereno o supervisor_sereno)
+      const res = await fetch(`${API_URL}/serenos`);
       if (res.ok) {
         const data = await res.json();
         setSerenos(Array.isArray(data) ? data : data.data || []);
