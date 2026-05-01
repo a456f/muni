@@ -156,6 +156,30 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
       });
     });
 
+    socket.on('panico_aceptado', (data: any) => {
+      const ts = new Date().toISOString();
+      setNotifications(prev => {
+        const updated = [{ id_incidencia: data.alerta_id, message: `Sereno aceptó alerta #${data.alerta_id} - GPS activado`, tipo: 'panico_aceptado', read: false, timestamp: ts }, ...prev].slice(0, 50);
+        localStorage.setItem('sys_notifications', JSON.stringify(updated));
+        return updated;
+      });
+      // Decrementar contador de pánicos activos (pasa de ASIGNADO a EN_CAMINO, sigue activa)
+      // No tocar el contador, solo notificar
+    });
+
+    socket.on('alerta_cerrada', (data: any) => {
+      const audio = new Audio('/alert.mp3');
+      audio.play().catch(() => {});
+      const ts = new Date().toISOString();
+      setNotifications(prev => {
+        const updated = [{ id_incidencia: data.alerta_id, message: `Alerta #${data.alerta_id} CERRADA por el sereno · ${data.fotos || 0} fotos`, tipo: 'alerta_cerrada', read: false, timestamp: ts }, ...prev].slice(0, 50);
+        localStorage.setItem('sys_notifications', JSON.stringify(updated));
+        return updated;
+      });
+      // Decrementar contador
+      setPanicosActivos(prev => Math.max(0, prev - 1));
+    });
+
     socket.on('alerta_panico_sereno', (data: any) => {
       const audio = new Audio('/alert.mp3');
       audio.play().catch(() => {});

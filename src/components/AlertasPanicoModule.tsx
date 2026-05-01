@@ -18,11 +18,19 @@ interface Alerta {
   dni: string | null;
 }
 
+interface FotoAlerta {
+  id: number;
+  ruta: string;
+  fecha_subida: string;
+}
+
 const AlertasPanicoModule: React.FC = () => {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [filtro, setFiltro] = useState('TODOS');
   const [serenos, setSerenos] = useState<any[]>([]);
   const [asignando, setAsignando] = useState<number | null>(null);
+  const [verFotos, setVerFotos] = useState<{ alerta: Alerta; fotos: FotoAlerta[] } | null>(null);
+  const [fotoZoom, setFotoZoom] = useState<string | null>(null);
   const [serenoSel, setSerenoSel] = useState('');
   const [observacion, setObservacion] = useState('');
   const [cerrando, setCerrando] = useState<number | null>(null);
@@ -45,6 +53,16 @@ const AlertasPanicoModule: React.FC = () => {
   };
 
   useEffect(() => { cargar(); cargarSerenos(); }, []);
+
+  const verFotosAlerta = async (alerta: Alerta) => {
+    try {
+      const res = await fetch(`${API_URL}/serenos/alertas/${alerta.id}/fotos`);
+      if (res.ok) {
+        const fotos = await res.json();
+        setVerFotos({ alerta, fotos });
+      }
+    } catch {}
+  };
 
   const asignar = async (alertaId: number) => {
     if (!serenoSel) return;
@@ -187,11 +205,17 @@ const AlertasPanicoModule: React.FC = () => {
                         background: '#1565C0', color: '#fff', fontWeight: 600, fontSize: '0.8rem'
                       }}>Asignar Sereno</button>
                     )}
-                    {(a.estado === 'ACTIVO' || a.estado === 'ASIGNADO') && (
+                    {(a.estado === 'ACTIVO' || a.estado === 'ASIGNADO' || a.estado === 'EN_CAMINO') && (
                       <button onClick={() => setCerrando(a.id)} style={{
                         padding: '7px 14px', borderRadius: 8, border: '1px solid #E0E0E0', cursor: 'pointer',
                         background: 'var(--bg-card)', color: '#2E7D32', fontWeight: 600, fontSize: '0.8rem'
-                      }}>Cerrar</button>
+                      }}>Cerrar manual</button>
+                    )}
+                    {a.estado === 'CERRADO' && (
+                      <button onClick={() => verFotosAlerta(a)} style={{
+                        padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                        background: '#7C3AED', color: '#fff', fontWeight: 600, fontSize: '0.8rem'
+                      }}>Ver evidencias</button>
                     )}
                   </div>
                 </div>
@@ -238,6 +262,82 @@ const AlertasPanicoModule: React.FC = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Modal: Ver evidencias fotográficas */}
+      {verFotos && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+        }} onClick={() => setVerFotos(null)}>
+          <div style={{
+            background: 'var(--bg-card)', borderRadius: 14, width: '100%', maxWidth: 720,
+            maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: 18, borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Evidencias de la atención</h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                  Alerta #{verFotos.alerta.id} &middot; {verFotos.alerta.nombre_ciudadano || 'Anónimo'}
+                </p>
+              </div>
+              <button onClick={() => setVerFotos(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}>×</button>
+            </div>
+
+            <div style={{ overflowY: 'auto', padding: 18 }}>
+              {verFotos.alerta.observacion && (
+                <div style={{ background: '#F0FDF4', border: '1px solid #86efac', padding: 14, borderRadius: 10, marginBottom: 16 }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#15803d', marginBottom: 4 }}>OBSERVACIÓN DEL SERENO</div>
+                  <div style={{ fontSize: '0.9rem', color: '#1f2937' }}>{verFotos.alerta.observacion}</div>
+                  {verFotos.alerta.atendido_por && (
+                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: 6 }}>
+                      Atendido por: <strong>{verFotos.alerta.atendido_por}</strong>
+                    </div>
+                  )}
+                  {verFotos.alerta.fecha_atencion && (
+                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                      Cerrado: {new Date(verFotos.alerta.fecha_atencion).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10 }}>
+                FOTOS DE EVIDENCIA ({verFotos.fotos.length})
+              </div>
+
+              {verFotos.fotos.length === 0 ? (
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 30 }}>
+                  Sin fotos de evidencia
+                </p>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+                  {verFotos.fotos.map(f => {
+                    const url = `${API_URL.replace(/\/api\/?$/, '')}/${f.ruta}`;
+                    return (
+                      <div key={f.id} onClick={() => setFotoZoom(url)} style={{
+                        aspectRatio: '1', cursor: 'pointer', borderRadius: 10, overflow: 'hidden',
+                        border: '1px solid var(--border-light)'
+                      }}>
+                        <img src={url} alt="Evidencia" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal foto ampliada */}
+      {fotoZoom && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 10000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+        }} onClick={() => setFotoZoom(null)}>
+          <img src={fotoZoom} alt="Foto" style={{ maxWidth: '95%', maxHeight: '95vh', objectFit: 'contain', borderRadius: 8 }} />
         </div>
       )}
     </div>
