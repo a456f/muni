@@ -334,10 +334,61 @@ router.get('/mis-alertas/:sereno_id', async (req, res) => {
                    c.telefono
             FROM alertas_panico ap
             LEFT JOIN ciudadanos c ON ap.ciudadano_id = c.id
-            WHERE ap.sereno_id = ? AND ap.estado IN ('ASIGNADO', 'ACTIVO')
+            WHERE ap.sereno_id = ? AND ap.estado IN ('ASIGNADO', 'ACTIVO', 'EN_CAMINO')
             ORDER BY ap.fecha DESC
         `, [req.params.sereno_id]);
         res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Historial COMPLETO de alertas del sereno (incluyendo cerradas)
+router.get('/historial-alertas/:sereno_id', async (req, res) => {
+    const { estado, page = 1, limit = 30 } = req.query;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 30));
+    const offset = (pageNum - 1) * limitNum;
+
+    let whereExtra = '';
+    const params = [req.params.sereno_id];
+    if (estado) {
+        whereExtra = 'AND ap.estado = ?';
+        params.push(estado);
+    }
+
+    try {
+        const [[{ total }]] = await db.query(
+            `SELECT COUNT(*) as total FROM alertas_panico ap WHERE ap.sereno_id = ? ${whereExtra}`,
+            params
+        );
+        const [rows] = await db.query(`
+            SELECT ap.id, ap.estado, ap.latitud, ap.longitud, ap.direccion,
+                   ap.fecha, ap.fecha_atencion, ap.observacion,
+                   CONCAT(c.nombres, ' ', c.apellidos) as nombre_ciudadano,
+                   c.telefono, c.dni
+            FROM alertas_panico ap
+            LEFT JOIN ciudadanos c ON ap.ciudadano_id = c.id
+            WHERE ap.sereno_id = ? ${whereExtra}
+            ORDER BY ap.fecha DESC
+            LIMIT ? OFFSET ?
+        `, [...params, limitNum, offset]);
+
+        // Stats agregados
+        const [[stats]] = await db.query(`
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN estado='ASIGNADO' THEN 1 ELSE 0 END) as asignadas,
+                SUM(CASE WHEN estado='EN_CAMINO' THEN 1 ELSE 0 END) as en_camino,
+                SUM(CASE WHEN estado='CERRADO' THEN 1 ELSE 0 END) as cerradas
+            FROM alertas_panico WHERE sereno_id = ?
+        `, [req.params.sereno_id]);
+
+        res.json({
+            data: rows,
+            pagination: { total, page: pageNum, limit: limitNum, totalPages: Math.ceil(total / limitNum) },
+            stats
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
