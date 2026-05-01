@@ -24,7 +24,11 @@ INSERT IGNORE INTO rol (nombre, sistema) VALUES
 ('sereno', 'APP_SERENO'),
 ('supervisor_sereno', 'APP_SERENO'),
 ('almacenero', 'APP_ALMACEN'),
-('logistica', 'APP_ALMACEN');
+('logistica', 'APP_ALMACEN'),
+('medico', 'WEB'),
+('enfermero', 'WEB'),
+('paramedico', 'WEB'),
+('personal_salud', 'WEB');
 
 -- 4. Asignar rol superadmin al usuario admin (busca por nombre, no por id fijo)
 INSERT IGNORE INTO usuario_rol (id_usuario, id_rol)

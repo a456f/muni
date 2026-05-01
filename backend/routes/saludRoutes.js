@@ -27,18 +27,29 @@ router.get('/pacientes/buscar/:dni', async (req, res) => {
 
 router.get('/personal', async (req, res) => {
     try {
+        // Filtrar por rol "salud", "medico", "enfermero", etc. (cualquier rol que contenga salud o sea de personal médico)
         const [rows] = await db.query(`
-            SELECT
+            SELECT DISTINCT
                 p.id_personal AS id,
                 p.id_personal,
                 CONCAT(p.nombres, ' ', p.apellidos) AS nombre,
-                COALESCE(a.nombre, 'Sin area') AS area,
-                'Personal de Salud' AS rol
+                GROUP_CONCAT(DISTINCT r.nombre SEPARATOR ', ') AS rol,
+                COALESCE(a.nombre, 'Sin area') AS area
             FROM personal p
+            INNER JOIN usuario u ON u.id_personal = p.id_personal
+            INNER JOIN usuario_rol ur ON ur.id_usuario = u.id_usuario
+            INNER JOIN rol r ON r.id_rol = ur.id_rol
             LEFT JOIN areas a ON a.id = p.id_area
             WHERE p.estado = 1
-              AND a.nombre IS NOT NULL
-              AND LOWER(a.nombre) LIKE '%salud%'
+              AND u.estado = 1
+              AND (
+                LOWER(r.nombre) LIKE '%salud%'
+                OR LOWER(r.nombre) LIKE '%medic%'
+                OR LOWER(r.nombre) LIKE '%enfermer%'
+                OR LOWER(r.nombre) LIKE '%paramedic%'
+                OR r.sistema = 'APP_SALUD'
+              )
+            GROUP BY p.id_personal, p.nombres, p.apellidos, a.nombre
             ORDER BY p.nombres, p.apellidos
         `);
         res.json(rows);
