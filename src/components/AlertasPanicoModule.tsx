@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { API_URL } from '../config/api';
 
 interface Alerta {
@@ -27,13 +27,16 @@ interface FotoAlerta {
 const AlertasPanicoModule: React.FC = () => {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [filtro, setFiltro] = useState('TODOS');
+  const [busqueda, setBusqueda] = useState('');
   const [serenos, setSerenos] = useState<any[]>([]);
-  const [asignando, setAsignando] = useState<number | null>(null);
+  const [asignando, setAsignando] = useState<Alerta | null>(null);
   const [verFotos, setVerFotos] = useState<{ alerta: Alerta; fotos: FotoAlerta[] } | null>(null);
   const [fotoZoom, setFotoZoom] = useState<string | null>(null);
   const [serenoSel, setSerenoSel] = useState('');
   const [observacion, setObservacion] = useState('');
-  const [cerrando, setCerrando] = useState<number | null>(null);
+  const [cerrando, setCerrando] = useState<Alerta | null>(null);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   const cargar = async () => {
     try {
@@ -57,270 +60,347 @@ const AlertasPanicoModule: React.FC = () => {
   const verFotosAlerta = async (alerta: Alerta) => {
     try {
       const res = await fetch(`${API_URL}/serenos/alertas/${alerta.id}/fotos`);
-      if (res.ok) {
-        const fotos = await res.json();
-        setVerFotos({ alerta, fotos });
-      }
+      if (res.ok) setVerFotos({ alerta, fotos: await res.json() });
     } catch {}
   };
 
-  const asignar = async (alertaId: number) => {
-    if (!serenoSel) return;
+  const asignar = async () => {
+    if (!serenoSel || !asignando) return;
     try {
-      const res = await fetch(`${API_URL}/ciudadano/alertas-panico/${alertaId}/asignar`, {
+      const res = await fetch(`${API_URL}/ciudadano/alertas-panico/${asignando.id}/asignar`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sereno_id: parseInt(serenoSel), operador: 'Admin' })
       });
-      if (res.ok) {
-        setAsignando(null);
-        setSerenoSel('');
-        cargar();
-      }
+      if (res.ok) { setAsignando(null); setSerenoSel(''); cargar(); }
     } catch {}
   };
 
-  const cerrar = async (alertaId: number) => {
+  const cerrar = async () => {
+    if (!cerrando) return;
     try {
-      const res = await fetch(`${API_URL}/ciudadano/alertas-panico/${alertaId}/cerrar`, {
+      const res = await fetch(`${API_URL}/ciudadano/alertas-panico/${cerrando.id}/cerrar`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ observacion: observacion || 'Atendida' })
       });
-      if (res.ok) {
-        setCerrando(null);
-        setObservacion('');
-        cargar();
-      }
+      if (res.ok) { setCerrando(null); setObservacion(''); cargar(); }
     } catch {}
   };
 
-  const filtradas = alertas.filter(a => filtro === 'TODOS' || a.estado === filtro);
+  const filtradas = useMemo(() => {
+    return alertas.filter(a => {
+      if (filtro !== 'TODOS' && a.estado !== filtro) return false;
+      if (busqueda.trim()) {
+        const s = busqueda.toLowerCase();
+        return (
+          a.nombre_ciudadano?.toLowerCase().includes(s) ||
+          a.telefono?.includes(s) ||
+          a.dni?.includes(s) ||
+          a.direccion?.toLowerCase().includes(s) ||
+          String(a.id).includes(s)
+        );
+      }
+      return true;
+    });
+  }, [alertas, filtro, busqueda]);
 
-  const estadoColor = (estado: string) => {
+  // Paginación
+  const totalPages = Math.max(1, Math.ceil(filtradas.length / PAGE_SIZE));
+  const pageActual = Math.min(page, totalPages);
+  const paginadas = filtradas.slice((pageActual - 1) * PAGE_SIZE, pageActual * PAGE_SIZE);
+
+  useEffect(() => { setPage(1); }, [filtro, busqueda]);
+
+  const colorChip = (estado: string) => {
     switch (estado) {
-      case 'ACTIVO': return { bg: '#FFEBEE', color: '#C62828', border: '#FFCDD2' };
-      case 'ASIGNADO': return { bg: '#E3F2FD', color: '#1565C0', border: '#BBDEFB' };
-      case 'CERRADO': return { bg: '#E8F5E9', color: '#2E7D32', border: '#C8E6C9' };
-      default: return { bg: '#F5F5F5', color: '#616161', border: '#E0E0E0' };
+      case 'ACTIVO': return { bg: '#FFEBEE', color: '#C62828' };
+      case 'ASIGNADO': return { bg: '#E3F2FD', color: '#1565C0' };
+      case 'EN_CAMINO': return { bg: '#E0F2FE', color: '#0369A1' };
+      case 'CERRADO': return { bg: '#E8F5E9', color: '#2E7D32' };
+      default: return { bg: '#F5F5F5', color: '#616161' };
     }
   };
 
+  const stats = useMemo(() => ({
+    total: alertas.length,
+    activas: alertas.filter(a => a.estado === 'ACTIVO').length,
+    asignadas: alertas.filter(a => a.estado === 'ASIGNADO').length,
+    enCamino: alertas.filter(a => a.estado === 'EN_CAMINO').length,
+    cerradas: alertas.filter(a => a.estado === 'CERRADO').length,
+  }), [alertas]);
+
   return (
     <div className="crud-module">
-      <div className="crud-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+      {/* Header */}
+      <div className="crud-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <div>
-          <h2 style={{ margin: 0 }}>Alertas de Panico</h2>
+          <h2 style={{ margin: 0 }}>Alertas de Pánico</h2>
           <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            {alertas.filter(a => a.estado === 'ACTIVO').length} activas &middot; {alertas.filter(a => a.estado === 'ASIGNADO').length} asignadas &middot; {alertas.length} total
+            Gestión de alertas de emergencia ciudadana
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {['TODOS', 'ACTIVO', 'ASIGNADO', 'CERRADO'].map(f => (
-            <button key={f} onClick={() => setFiltro(f)} style={{
-              padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-              fontWeight: 600, fontSize: '0.82rem',
-              background: filtro === f ? (f === 'ACTIVO' ? '#C62828' : f === 'ASIGNADO' ? '#1565C0' : f === 'CERRADO' ? '#2E7D32' : 'var(--primary)') : 'var(--bg-input)',
-              color: filtro === f ? '#fff' : 'var(--text-primary)'
-            }}>{f === 'TODOS' ? 'Todos' : f}</button>
-          ))}
-          <button onClick={cargar} style={{
-            padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border-light)',
-            background: 'var(--bg-card)', cursor: 'pointer', fontSize: '0.82rem'
-          }}>Actualizar</button>
-        </div>
+        <button onClick={cargar} style={{
+          padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border-light)',
+          background: 'var(--bg-card)', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 6
+        }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Actualizar
+        </button>
       </div>
 
-      {filtradas.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-          <p>No hay alertas {filtro !== 'TODOS' ? `con estado ${filtro}` : ''}</p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 0' }}>
-          {filtradas.map(a => {
-            const ec = estadoColor(a.estado);
+      {/* Stats cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 16 }}>
+        {[
+          { label: 'Total', value: stats.total, color: '#374151' },
+          { label: 'Activas', value: stats.activas, color: '#C62828' },
+          { label: 'Asignadas', value: stats.asignadas, color: '#1565C0' },
+          { label: 'En camino', value: stats.enCamino, color: '#0369A1' },
+          { label: 'Cerradas', value: stats.cerradas, color: '#2E7D32' },
+        ].map(s => (
+          <div key={s.label} style={{
+            background: 'var(--bg-card)', padding: '12px 14px', borderRadius: 10,
+            border: '1px solid var(--border-light)', borderLeft: `4px solid ${s.color}`
+          }}>
+            <div style={{ fontSize: '1.6rem', fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.value}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros y búsqueda */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input type="text" placeholder="Buscar por nombre, teléfono, DNI, dirección..." value={busqueda}
+          onChange={e => setBusqueda(e.target.value)} style={{
+          flex: 1, minWidth: 240, padding: '9px 14px', borderRadius: 8,
+          border: '1px solid var(--border-light)', fontSize: '0.88rem'
+        }} />
+        <div style={{ display: 'flex', gap: 4 }}>
+          {['TODOS', 'ACTIVO', 'ASIGNADO', 'EN_CAMINO', 'CERRADO'].map(f => {
+            const c = colorChip(f === 'TODOS' ? 'ACTIVO' : f);
             return (
-              <div key={a.id} style={{
-                background: 'var(--bg-card)', borderRadius: 14, border: `1px solid var(--border-light)`,
-                borderLeft: `4px solid ${ec.color}`, overflow: 'hidden'
-              }}>
-                <div style={{ padding: 16, display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                  {/* Icono */}
-                  <div style={{
-                    width: 44, height: 44, borderRadius: 12, background: ec.bg,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                  }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={ec.color} strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                  </div>
-
-                  {/* Info */}
-                  <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 6 }}>
-                      <strong style={{ fontSize: '0.95rem' }}>
-                        {a.nombre_ciudadano || 'Ciudadano anonimo'}
-                      </strong>
-                      <span style={{
-                        padding: '3px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 700,
-                        background: ec.bg, color: ec.color, border: `1px solid ${ec.border}`
-                      }}>{a.estado}</span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
-                      {a.telefono && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                          <a href={`tel:${a.telefono}`} style={{ color: '#C62828', fontWeight: 600, textDecoration: 'none' }}>{a.telefono}</a>
-                        </span>
-                      )}
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 0 0-16 0c0 3 2.7 7 8 11.7z"/></svg>
-                        <a href={`https://www.google.com/maps?q=${a.latitud},${a.longitud}`} target="_blank" rel="noopener noreferrer" style={{ color: '#1565C0', textDecoration: 'none' }}>
-                          Ver en mapa
-                        </a>
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        {new Date(a.fecha).toLocaleString()}
-                      </span>
-                    </div>
-
-                    {a.atendido_por && (
-                      <div style={{ marginTop: 6, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                        Atendido por: <strong>{a.atendido_por}</strong>
-                        {a.fecha_atencion && ` - ${new Date(a.fecha_atencion).toLocaleString()}`}
-                      </div>
-                    )}
-                    {a.observacion && (
-                      <div style={{ marginTop: 4, fontSize: '0.82rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                        "{a.observacion}"
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Acciones */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                    {a.estado === 'ACTIVO' && (
-                      <button onClick={() => { setAsignando(a.id); setSerenoSel(''); }} style={{
-                        padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                        background: '#1565C0', color: '#fff', fontWeight: 600, fontSize: '0.8rem'
-                      }}>Asignar Sereno</button>
-                    )}
-                    {(a.estado === 'ACTIVO' || a.estado === 'ASIGNADO' || a.estado === 'EN_CAMINO') && (
-                      <button onClick={() => setCerrando(a.id)} style={{
-                        padding: '7px 14px', borderRadius: 8, border: '1px solid #E0E0E0', cursor: 'pointer',
-                        background: 'var(--bg-card)', color: '#2E7D32', fontWeight: 600, fontSize: '0.8rem'
-                      }}>Cerrar manual</button>
-                    )}
-                    {a.estado === 'CERRADO' && (
-                      <button onClick={() => verFotosAlerta(a)} style={{
-                        padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                        background: '#7C3AED', color: '#fff', fontWeight: 600, fontSize: '0.8rem'
-                      }}>Ver evidencias</button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Panel de asignar sereno */}
-                {asignando === a.id && (
-                  <div style={{ padding: '12px 16px', background: 'var(--bg-input)', borderTop: '1px solid var(--border-light)', display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <select value={serenoSel} onChange={e => setSerenoSel(e.target.value)} style={{
-                      flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-light)', fontSize: '0.85rem'
-                    }}>
-                      <option value="">Seleccionar sereno...</option>
-                      {serenos.map((s: any) => (
-                        <option key={s.id_personal || s.id} value={s.id_personal || s.id}>
-                          {s.nombres} {s.apellidos}
-                        </option>
-                      ))}
-                    </select>
-                    <button onClick={() => asignar(a.id)} disabled={!serenoSel} style={{
-                      padding: '8px 16px', borderRadius: 8, border: 'none', cursor: serenoSel ? 'pointer' : 'not-allowed',
-                      background: serenoSel ? '#1565C0' : '#E0E0E0', color: '#fff', fontWeight: 600, fontSize: '0.82rem'
-                    }}>Asignar</button>
-                    <button onClick={() => setAsignando(null)} style={{
-                      padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-light)',
-                      background: 'var(--bg-card)', cursor: 'pointer', fontSize: '0.82rem'
-                    }}>Cancelar</button>
-                  </div>
-                )}
-
-                {/* Panel de cerrar */}
-                {cerrando === a.id && (
-                  <div style={{ padding: '12px 16px', background: 'var(--bg-input)', borderTop: '1px solid var(--border-light)', display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input value={observacion} onChange={e => setObservacion(e.target.value)} placeholder="Observacion (opcional)"
-                      style={{ flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-light)', fontSize: '0.85rem' }} />
-                    <button onClick={() => cerrar(a.id)} style={{
-                      padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                      background: '#2E7D32', color: '#fff', fontWeight: 600, fontSize: '0.82rem'
-                    }}>Cerrar alerta</button>
-                    <button onClick={() => setCerrando(null)} style={{
-                      padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-light)',
-                      background: 'var(--bg-card)', cursor: 'pointer', fontSize: '0.82rem'
-                    }}>Cancelar</button>
-                  </div>
-                )}
-              </div>
+              <button key={f} onClick={() => setFiltro(f)} style={{
+                padding: '7px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                fontWeight: 600, fontSize: '0.78rem',
+                background: filtro === f ? c.color : 'var(--bg-input)',
+                color: filtro === f ? '#fff' : 'var(--text-primary)'
+              }}>{f === 'TODOS' ? 'Todos' : f}</button>
             );
           })}
         </div>
+      </div>
+
+      {/* Tabla */}
+      <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-light)', overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-input)', borderBottom: '2px solid var(--border-light)' }}>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>#</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Estado</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Ciudadano</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Teléfono</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Ubicación</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Fecha</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Sereno</th>
+                <th style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-muted)' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginadas.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: '40px 14px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    No hay alertas {filtro !== 'TODOS' ? `con estado ${filtro}` : ''}
+                  </td>
+                </tr>
+              ) : paginadas.map((a, idx) => {
+                const c = colorChip(a.estado);
+                return (
+                  <tr key={a.id} style={{
+                    borderBottom: '1px solid var(--border-light)',
+                    background: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)'
+                  }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--text-muted)' }}>#{a.id}</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <span style={{
+                        padding: '3px 10px', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700,
+                        background: c.bg, color: c.color, whiteSpace: 'nowrap'
+                      }}>{a.estado}</span>
+                    </td>
+                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>
+                      {a.nombre_ciudadano || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Anónimo</span>}
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      {a.telefono ? (
+                        <a href={`tel:${a.telefono}`} style={{ color: '#C62828', fontWeight: 600, textDecoration: 'none' }}>{a.telefono}</a>
+                      ) : <span style={{ color: 'var(--text-muted)' }}>-</span>}
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <a href={`https://www.google.com/maps?q=${a.latitud},${a.longitud}`} target="_blank" rel="noopener noreferrer" style={{ color: '#1565C0', textDecoration: 'none', fontSize: '0.8rem' }}>
+                        Ver mapa
+                      </a>
+                    </td>
+                    <td style={{ padding: '10px 14px', fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      {new Date(a.fecha).toLocaleString()}
+                    </td>
+                    <td style={{ padding: '10px 14px', fontSize: '0.8rem' }}>
+                      {a.atendido_por || <span style={{ color: 'var(--text-muted)' }}>-</span>}
+                    </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 4 }}>
+                        {a.estado === 'ACTIVO' && (
+                          <button onClick={() => { setAsignando(a); setSerenoSel(''); }} style={{
+                            padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                            background: '#1565C0', color: '#fff', fontWeight: 600, fontSize: '0.72rem'
+                          }}>Asignar</button>
+                        )}
+                        {(a.estado === 'ACTIVO' || a.estado === 'ASIGNADO' || a.estado === 'EN_CAMINO') && (
+                          <button onClick={() => { setCerrando(a); setObservacion(''); }} style={{
+                            padding: '5px 10px', borderRadius: 6, border: '1px solid #E0E0E0', cursor: 'pointer',
+                            background: 'var(--bg-card)', color: '#2E7D32', fontWeight: 600, fontSize: '0.72rem'
+                          }}>Cerrar</button>
+                        )}
+                        {a.estado === 'CERRADO' && (
+                          <button onClick={() => verFotosAlerta(a)} style={{
+                            padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                            background: '#7C3AED', color: '#fff', fontWeight: 600, fontSize: '0.72rem'
+                          }}>Evidencias</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Paginación */}
+        {filtradas.length > 0 && (
+          <div style={{
+            padding: '12px 16px', borderTop: '1px solid var(--border-light)',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8
+          }}>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Mostrando <strong>{(pageActual - 1) * PAGE_SIZE + 1}</strong>-<strong>{Math.min(pageActual * PAGE_SIZE, filtradas.length)}</strong> de <strong>{filtradas.length}</strong>
+            </div>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <button onClick={() => setPage(1)} disabled={pageActual === 1} style={btnPag(pageActual === 1)}>«</button>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={pageActual === 1} style={btnPag(pageActual === 1)}>‹</button>
+              <span style={{ padding: '0 12px', fontSize: '0.85rem', fontWeight: 600 }}>
+                {pageActual} / {totalPages}
+              </span>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={pageActual === totalPages} style={btnPag(pageActual === totalPages)}>›</button>
+              <button onClick={() => setPage(totalPages)} disabled={pageActual === totalPages} style={btnPag(pageActual === totalPages)}>»</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Modal: Asignar sereno */}
+      {asignando && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setAsignando(null)}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 12, width: '100%', maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: 18, borderBottom: '1px solid var(--border-light)' }}>
+              <h3 style={{ margin: 0 }}>Asignar sereno a alerta #{asignando.id}</h3>
+              <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                {asignando.nombre_ciudadano || 'Anónimo'} {asignando.telefono && `· ${asignando.telefono}`}
+              </p>
+            </div>
+            <div style={{ padding: 18 }}>
+              <select value={serenoSel} onChange={e => setSerenoSel(e.target.value)} style={{
+                width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-light)', fontSize: '0.9rem'
+              }}>
+                <option value="">Seleccionar sereno...</option>
+                {serenos.map((s: any) => (
+                  <option key={s.id_personal || s.id} value={s.id_personal || s.id}>
+                    {s.nombres} {s.apellidos}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div style={{ padding: 12, borderTop: '1px solid var(--border-light)', display: 'flex', gap: 8 }}>
+              <button onClick={() => setAsignando(null)} style={{
+                flex: 1, padding: '10px', borderRadius: 8, border: '1px solid var(--border-light)',
+                background: 'var(--bg-card)', cursor: 'pointer', fontWeight: 600
+              }}>Cancelar</button>
+              <button onClick={asignar} disabled={!serenoSel} style={{
+                flex: 2, padding: '10px', borderRadius: 8, border: 'none', cursor: serenoSel ? 'pointer' : 'not-allowed',
+                background: serenoSel ? '#1565C0' : '#E0E0E0', color: '#fff', fontWeight: 600
+              }}>Asignar</button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Modal: Ver evidencias fotográficas */}
+      {/* Modal: Cerrar alerta */}
+      {cerrando && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setCerrando(null)}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 12, width: '100%', maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: 18, borderBottom: '1px solid var(--border-light)' }}>
+              <h3 style={{ margin: 0 }}>Cerrar alerta #{cerrando.id}</h3>
+              <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                {cerrando.nombre_ciudadano || 'Anónimo'}
+              </p>
+            </div>
+            <div style={{ padding: 18 }}>
+              <textarea value={observacion} onChange={e => setObservacion(e.target.value)} placeholder="Observación de cierre..." rows={4} style={{
+                width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-light)',
+                fontSize: '0.9rem', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit'
+              }} />
+            </div>
+            <div style={{ padding: 12, borderTop: '1px solid var(--border-light)', display: 'flex', gap: 8 }}>
+              <button onClick={() => setCerrando(null)} style={{
+                flex: 1, padding: '10px', borderRadius: 8, border: '1px solid var(--border-light)',
+                background: 'var(--bg-card)', cursor: 'pointer', fontWeight: 600
+              }}>Cancelar</button>
+              <button onClick={cerrar} style={{
+                flex: 2, padding: '10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                background: '#2E7D32', color: '#fff', fontWeight: 600
+              }}>Cerrar alerta</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Ver evidencias */}
       {verFotos && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
-        }} onClick={() => setVerFotos(null)}>
-          <div style={{
-            background: 'var(--bg-card)', borderRadius: 14, width: '100%', maxWidth: 720,
-            maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column'
-          }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setVerFotos(null)}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 14, width: '100%', maxWidth: 720, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <div style={{ padding: 18, borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Evidencias de la atención</h3>
+                <h3 style={{ margin: 0 }}>Evidencias de la atención</h3>
                 <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  Alerta #{verFotos.alerta.id} &middot; {verFotos.alerta.nombre_ciudadano || 'Anónimo'}
+                  Alerta #{verFotos.alerta.id} · {verFotos.alerta.nombre_ciudadano || 'Anónimo'}
                 </p>
               </div>
               <button onClick={() => setVerFotos(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-muted)' }}>×</button>
             </div>
-
             <div style={{ overflowY: 'auto', padding: 18 }}>
               {verFotos.alerta.observacion && (
                 <div style={{ background: '#F0FDF4', border: '1px solid #86efac', padding: 14, borderRadius: 10, marginBottom: 16 }}>
                   <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#15803d', marginBottom: 4 }}>OBSERVACIÓN DEL SERENO</div>
                   <div style={{ fontSize: '0.9rem', color: '#1f2937' }}>{verFotos.alerta.observacion}</div>
                   {verFotos.alerta.atendido_por && (
-                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: 6 }}>
-                      Atendido por: <strong>{verFotos.alerta.atendido_por}</strong>
-                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: 6 }}>Atendido por: <strong>{verFotos.alerta.atendido_por}</strong></div>
                   )}
                   {verFotos.alerta.fecha_atencion && (
-                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                      Cerrado: {new Date(verFotos.alerta.fecha_atencion).toLocaleString()}
-                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Cerrado: {new Date(verFotos.alerta.fecha_atencion).toLocaleString()}</div>
                   )}
                 </div>
               )}
-
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10 }}>
-                FOTOS DE EVIDENCIA ({verFotos.fotos.length})
-              </div>
-
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10 }}>FOTOS DE EVIDENCIA ({verFotos.fotos.length})</div>
               {verFotos.fotos.length === 0 ? (
-                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 30 }}>
-                  Sin fotos de evidencia
-                </p>
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 30 }}>Sin fotos de evidencia</p>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
                   {verFotos.fotos.map(f => {
                     const url = `${API_URL.replace(/\/api\/?$/, '')}/${f.ruta}`;
                     return (
                       <div key={f.id} onClick={() => setFotoZoom(url)} style={{
-                        aspectRatio: '1', cursor: 'pointer', borderRadius: 10, overflow: 'hidden',
-                        border: '1px solid var(--border-light)'
+                        aspectRatio: '1', cursor: 'pointer', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border-light)'
                       }}>
-                        <img src={url} alt="Evidencia" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </div>
                     );
                   })}
@@ -331,17 +411,21 @@ const AlertasPanicoModule: React.FC = () => {
         </div>
       )}
 
-      {/* Modal foto ampliada */}
       {fotoZoom && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 10000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
-        }} onClick={() => setFotoZoom(null)}>
-          <img src={fotoZoom} alt="Foto" style={{ maxWidth: '95%', maxHeight: '95vh', objectFit: 'contain', borderRadius: 8 }} />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setFotoZoom(null)}>
+          <img src={fotoZoom} alt="" style={{ maxWidth: '95%', maxHeight: '95vh', objectFit: 'contain', borderRadius: 8 }} />
         </div>
       )}
     </div>
   );
 };
+
+const btnPag = (disabled: boolean): React.CSSProperties => ({
+  padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-light)',
+  background: disabled ? 'var(--bg-input)' : 'var(--bg-card)',
+  color: disabled ? 'var(--text-muted)' : 'var(--text-primary)',
+  cursor: disabled ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 600,
+  opacity: disabled ? 0.5 : 1
+});
 
 export default AlertasPanicoModule;
