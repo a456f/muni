@@ -413,9 +413,9 @@ const PersonalAreasModule = ({ title = 'Gestión de Personal' }: PersonalAreasMo
                   {paginatedPersonas.map((persona) => (
                     <tr key={persona.id}>
                       <td>{persona.codigo_personal || `P-${persona.id}`}</td>
-                      <td>{persona.nombre}</td>
-                      <td>{persona.area_nombre || <span style={{color:'var(--text-muted)'}}>-</span>}</td>
-                      <td>{persona.sector_nombre ? <span>{persona.sector_nombre} <small style={{color:'var(--text-muted)'}}>({persona.zona_nombre})</small></span> : <span style={{color:'var(--text-muted)'}}>-</span>}</td>
+                      <td style={{ textTransform: 'uppercase' }}>{persona.nombre}</td>
+                      <td style={{ textTransform: 'uppercase' }}>{persona.area_nombre || <span style={{ color:'var(--text-muted)', textTransform:'none' }}>-</span>}</td>
+                      <td style={{ textTransform: 'uppercase' }}>{persona.sector_nombre ? <span>{persona.sector_nombre} <small style={{ color:'var(--text-muted)' }}>({persona.zona_nombre})</small></span> : <span style={{ color:'var(--text-muted)', textTransform:'none' }}>-</span>}</td>
                       <td>
                         <select
                           className="table-filter-select row-select"
@@ -522,7 +522,7 @@ const PersonalAreasModule = ({ title = 'Gestión de Personal' }: PersonalAreasMo
                   {paginatedAreas.map((area) => (
                     <tr key={area.id}>
                       <td>{area.id}</td>
-                      <td>{area.nombre}</td>
+                      <td style={{ textTransform: 'uppercase' }}>{area.nombre}</td>
                       <td>{personas.filter((persona) => persona.area_id === area.id).length}</td>
                       <td>
                         <button className="action-btn edit" onClick={() => openAreaModal(area)} title="Editar">
