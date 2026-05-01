@@ -205,12 +205,47 @@ router.post('/personal', async (req, res) => {
     res.status(201).json({ message: 'Personal creado correctamente.' });
   } catch (err) {
     await connection.rollback();
-    const code = err.code === 'ER_DUP_ENTRY' ? 409 : 500;
-    res.status(code).json({ error: err.message });
+    res.status(getErrorStatus(err)).json({ error: traducirError(err) });
   } finally {
     connection.release();
   }
 });
+
+// Helper para traducir errores técnicos a mensajes amigables
+function traducirError(err) {
+  const msg = err.message || '';
+  if (err.code === 'ER_DUP_ENTRY') {
+    if (msg.includes('codigo_personal')) return 'El código de personal ya existe. Use uno diferente.';
+    if (msg.includes('username')) return 'El nombre de usuario ya está registrado.';
+    if (msg.includes('dni')) return 'El DNI ya está registrado en el sistema.';
+    if (msg.includes('numero_serie')) return 'El número de serie ya existe.';
+    if (msg.includes('correo')) return 'El correo electrónico ya está registrado.';
+    return 'Ya existe un registro con esos datos.';
+  }
+  if (err.code === 'ER_NO_REFERENCED_ROW_2' || err.code === 'ER_NO_REFERENCED_ROW') {
+    return 'Hay datos relacionados que no existen. Verifique los registros vinculados.';
+  }
+  if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') {
+    return 'No se puede eliminar: existen registros relacionados.';
+  }
+  if (err.code === 'ER_DATA_TOO_LONG') {
+    return 'Uno de los campos excede el largo permitido.';
+  }
+  if (err.code === 'ER_BAD_NULL_ERROR') {
+    return 'Falta un campo obligatorio.';
+  }
+  // Si es un Error custom (lanzado con throw new Error), usar su mensaje
+  if (err.message && !err.code) return err.message;
+  return 'Error en el servidor. Intenta de nuevo más tarde.';
+}
+
+function getErrorStatus(err) {
+  if (err.code === 'ER_DUP_ENTRY') return 409;
+  if (err.code === 'ER_NO_REFERENCED_ROW_2' || err.code === 'ER_NO_REFERENCED_ROW') return 400;
+  if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.code === 'ER_ROW_IS_REFERENCED') return 409;
+  if (err.code === 'ER_DATA_TOO_LONG' || err.code === 'ER_BAD_NULL_ERROR') return 400;
+  return 500;
+}
 
 router.put('/personal/:id', async (req, res) => {
   const {
@@ -287,8 +322,7 @@ router.put('/personal/:id', async (req, res) => {
     res.json({ message: 'Personal actualizado correctamente.' });
   } catch (err) {
     await connection.rollback();
-    const code = err.code === 'ER_DUP_ENTRY' ? 409 : 500;
-    res.status(code).json({ error: err.message });
+    res.status(getErrorStatus(err)).json({ error: traducirError(err) });
   } finally {
     connection.release();
   }
@@ -312,7 +346,7 @@ router.delete('/personal/:id', async (req, res) => {
     res.json({ message: 'Personal eliminado correctamente.' });
   } catch (err) {
     await connection.rollback();
-    res.status(500).json({ error: err.message });
+    res.status(getErrorStatus(err)).json({ error: traducirError(err) });
   } finally {
     connection.release();
   }
