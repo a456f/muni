@@ -31,7 +31,7 @@ const SeguimientoAlertasModule: React.FC = () => {
   const [seleccionada, setSeleccionada] = useState<AlertaSeguimiento | null>(null);
   const [serenoNombre, setSerenoNombre] = useState<string>('');
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [filtro, setFiltro] = useState<'TODAS' | 'EN_CAMINO' | 'ASIGNADO' | 'CERRADO'>('EN_CAMINO');
+  const [filtro, setFiltro] = useState<'ACTIVAS' | 'TODAS' | 'EN_CAMINO' | 'ASIGNADO' | 'CERRADO'>('ACTIVAS');
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date | null>(null);
 
   const fetchAlertas = useCallback(async () => {
@@ -184,7 +184,11 @@ const SeguimientoAlertasModule: React.FC = () => {
     googleMapRef.current.setZoom(16);
   };
 
-  const filtradas = alertas.filter(a => filtro === 'TODAS' || a.estado === filtro);
+  const filtradas = alertas.filter(a => {
+    if (filtro === 'TODAS') return true;
+    if (filtro === 'ACTIVAS') return a.estado === 'EN_CAMINO' || a.estado === 'ASIGNADO';
+    return a.estado === filtro;
+  });
 
   const colorEstado = (estado: string) => {
     switch (estado) {
@@ -221,14 +225,17 @@ const SeguimientoAlertasModule: React.FC = () => {
           </p>
 
           <div style={{ display: 'flex', gap: 4, marginTop: 10, flexWrap: 'wrap' }}>
-            {(['EN_CAMINO', 'ASIGNADO', 'CERRADO', 'TODAS'] as const).map(f => (
-              <button key={f} onClick={() => setFiltro(f)} style={{
-                padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                fontWeight: 600, fontSize: '0.75rem',
-                background: filtro === f ? colorEstado(f === 'TODAS' ? 'ACTIVO' : f) : 'var(--bg-input)',
-                color: filtro === f ? '#fff' : 'var(--text-primary)'
-              }}>{f === 'TODAS' ? 'Todas' : f}</button>
-            ))}
+            {(['ACTIVAS', 'EN_CAMINO', 'ASIGNADO', 'CERRADO', 'TODAS'] as const).map(f => {
+              const tint = f === 'ACTIVAS' ? '#dc2626' : f === 'TODAS' ? '#475569' : colorEstado(f);
+              return (
+                <button key={f} onClick={() => setFiltro(f)} style={{
+                  padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                  fontWeight: 600, fontSize: '0.75rem',
+                  background: filtro === f ? tint : 'var(--bg-input)',
+                  color: filtro === f ? '#fff' : 'var(--text-primary)'
+                }}>{f === 'TODAS' ? 'Todas' : f === 'ACTIVAS' ? 'Activas' : f}</button>
+              );
+            })}
           </div>
         </div>
 

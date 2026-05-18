@@ -7,7 +7,7 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
 interface Equipo { id: number; descripcion: string; numero_serie: string; estado: string; }
-interface Persona { id: number; nombre: string; }
+interface Persona { id: number; nombre: string; area_id: number | null; area_nombre: string | null; }
 interface Area { id: number; nombre: string; }
 
 interface Asignacion {
@@ -214,22 +214,23 @@ const AsignacionesEquiposModule = () => {
                                         .map(eq => <option key={eq.id} value={eq.id}>{eq.descripcion} (S/N: {eq.numero_serie})</option>)}
                                 </select>
 
-                                <label>Persona (Opcional)</label>
-                                <input type="text" placeholder="Buscar persona..." value={personaSearch} onChange={e => setPersonaSearch(e.target.value)} />
-                                <select value={assignForm.persona_id} onChange={e => setAssignForm({ ...assignForm, persona_id: e.target.value })}>
-                                    <option value="">-- Asignar solo a Área (Sin Persona) --</option>
-                                    {personas
-                                        .filter(p => p.nombre.toLowerCase().includes(personaSearch.toLowerCase()))
-                                        .map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                                </select>
-
                                 <label>Área de Destino</label>
                                 <input type="text" placeholder="Buscar área..." value={areaSearch} onChange={e => setAreaSearch(e.target.value)} />
-                                <select value={assignForm.area_id} onChange={e => setAssignForm({ ...assignForm, area_id: e.target.value })} required>
+                                <select value={assignForm.area_id} onChange={e => setAssignForm({ ...assignForm, area_id: e.target.value, persona_id: '' })} required>
                                     <option value="">-- Seleccione Área --</option>
                                     {areas
                                         .filter(a => a.nombre.toLowerCase().includes(areaSearch.toLowerCase()))
                                         .map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                                </select>
+
+                                <label>Persona (Opcional){assignForm.area_id && <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.78rem' }}> — solo de esta área</span>}</label>
+                                <input type="text" placeholder={assignForm.area_id ? 'Buscar persona del área...' : 'Seleccione un área primero'} value={personaSearch} onChange={e => setPersonaSearch(e.target.value)} disabled={!assignForm.area_id} />
+                                <select value={assignForm.persona_id} onChange={e => setAssignForm({ ...assignForm, persona_id: e.target.value })} disabled={!assignForm.area_id}>
+                                    <option value="">-- Asignar solo a Área (Sin Persona) --</option>
+                                    {personas
+                                        .filter(p => assignForm.area_id && String(p.area_id) === String(assignForm.area_id))
+                                        .filter(p => p.nombre.toLowerCase().includes(personaSearch.toLowerCase()))
+                                        .map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                                 </select>
 
                                 <label>Fecha de Asignación</label>
