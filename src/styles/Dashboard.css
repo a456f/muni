@@ -410,3 +410,112 @@
     font-size: 12px;
   }
 }
+
+/* =====================================================================
+   Animaciones de bienvenida — solo al iniciar sesión (no en reload)
+   ===================================================================== */
+@keyframes oisgo-slide-in-left {
+  from { transform: translateX(-110%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes oisgo-slide-in-down {
+  from { transform: translateY(-110%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+@keyframes oisgo-fade-in-up {
+  from { transform: translateY(24px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes oisgo-scale-in {
+  0%   { transform: scale(0.92); opacity: 0; }
+  60%  { transform: scale(1.02); }
+  100% { transform: scale(1);    opacity: 1; }
+}
+@keyframes oisgo-welcome-toast {
+  0%   { transform: translate(-50%, -40px) scale(0.85); opacity: 0; }
+  18%  { transform: translate(-50%, 0)     scale(1);    opacity: 1; }
+  82%  { transform: translate(-50%, 0)     scale(1);    opacity: 1; }
+  100% { transform: translate(-50%, -40px) scale(0.85); opacity: 0; }
+}
+
+.dashboard-container.welcome-animate .sidebar {
+  animation: oisgo-slide-in-left 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.dashboard-container.welcome-animate .top-bar {
+  animation: oisgo-slide-in-down 0.55s 0.05s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.dashboard-container.welcome-animate .content-area {
+  animation: oisgo-fade-in-up 0.6s 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.dashboard-container.welcome-animate .stats-grid .stat-card {
+  animation: oisgo-scale-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.dashboard-container.welcome-animate .stats-grid .stat-card:nth-child(1) { animation-delay: 0.35s; }
+.dashboard-container.welcome-animate .stats-grid .stat-card:nth-child(2) { animation-delay: 0.45s; }
+.dashboard-container.welcome-animate .stats-grid .stat-card:nth-child(3) { animation-delay: 0.55s; }
+.dashboard-container.welcome-animate .stats-grid .stat-card:nth-child(4) { animation-delay: 0.65s; }
+.dashboard-container.welcome-animate .dash-grid-2 > *,
+.dashboard-container.welcome-animate .dash-grid-3 > *,
+.dashboard-container.welcome-animate .dash-grid-2-1 > * {
+  animation: oisgo-fade-in-up 0.55s 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Toast de bienvenida */
+.welcome-toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 22px 12px 14px;
+  background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 55%, #43A047 100%);
+  color: #fff;
+  border-radius: 999px;
+  box-shadow: 0 18px 42px rgba(27, 94, 32, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  animation: oisgo-welcome-toast 2.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform: translate(-50%, 0);
+  pointer-events: none;
+}
+.welcome-toast-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.welcome-toast-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.welcome-toast-hi {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 600;
+}
+.welcome-toast-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+/* Respetar preferencia de reducir movimiento */
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-container.welcome-animate .sidebar,
+  .dashboard-container.welcome-animate .top-bar,
+  .dashboard-container.welcome-animate .content-area,
+  .dashboard-container.welcome-animate .stats-grid .stat-card,
+  .dashboard-container.welcome-animate .dash-grid-2 > *,
+  .dashboard-container.welcome-animate .dash-grid-3 > *,
+  .dashboard-container.welcome-animate .dash-grid-2-1 > *,
+  .welcome-toast {
+    animation: none;
+  }
+}

@@ -37,9 +37,19 @@ interface DashboardProps {
   onLogout: () => void;
   toggleTheme: () => void;
   isDarkMode: boolean;
+  justLoggedIn?: boolean;
 }
 
-const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) => {
+const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode, justLoggedIn = false }: DashboardProps) => {
+  const [showWelcome, setShowWelcome] = useState(justLoggedIn);
+  const [animateLayout, setAnimateLayout] = useState(justLoggedIn);
+
+  useEffect(() => {
+    if (!justLoggedIn) return;
+    const t1 = setTimeout(() => setShowWelcome(false), 2200); // toast fuera
+    const t2 = setTimeout(() => setAnimateLayout(false), 1800); // quitar clase animación layout
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [justLoggedIn]);
   const [activeTab, setActiveTab] = useState(defaultTabFor(user));
 
   // Guard: si el usuario no puede acceder al tab actual (ej. por una notificación), redirige al default
@@ -646,7 +656,19 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
   };
 
   return (
-    <div className="dashboard-container">
+    <div className={`dashboard-container ${animateLayout ? 'welcome-animate' : ''}`}>
+      {showWelcome && createPortal(
+        <div className="welcome-toast">
+          <div className="welcome-toast-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+          </div>
+          <div className="welcome-toast-text">
+            <span className="welcome-toast-hi">Bienvenido</span>
+            <span className="welcome-toast-name">{user.nombre || user.username || user.email}</span>
+          </div>
+        </div>,
+        document.body
+      )}
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
       <Sidebar
         activeTab={activeTab}

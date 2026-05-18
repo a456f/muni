@@ -7,6 +7,7 @@ const SESSION_KEY = 'oisgo_session';
 const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 días
 
 function App() {
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
   // Restaurar sesión desde localStorage si existe y no ha expirado
   const [user, setUser] = useState<User | null>(() => {
     try {
@@ -35,6 +36,7 @@ function App() {
 
   const handleLogin = (userData: User) => {
     setUser(userData);
+    setJustLoggedIn(true);
     // Guardar sesión por 7 días
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       user: userData,
@@ -44,6 +46,7 @@ function App() {
 
   const handleLogout = () => {
     setUser(null);
+    setJustLoggedIn(false);
     localStorage.removeItem(SESSION_KEY);
   };
 
@@ -55,6 +58,7 @@ function App() {
           onLogout={handleLogout}
           toggleTheme={toggleTheme}
           isDarkMode={theme === 'dark'}
+          justLoggedIn={justLoggedIn}
         />
       ) : (
         <Login onLogin={handleLogin} />
