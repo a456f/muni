@@ -13,6 +13,7 @@ import saludRoutes from './routes/saludRoutes.js'; // <-- Rutas de Salud
 import almacenRoutes from './routes/almacenRoutes.js'; // <-- Rutas de Almacén
 import ciudadanoRoutes from './routes/ciudadanoRoutes.js'; // <-- Rutas de Ciudadano
 import camarasRoutes from './routes/camarasRoutes.js'; // <-- Cámaras instaladas
+import apkRoutes from './routes/apkRoutes.js'; // <-- Descargas de APKs
 
 const app = express();
 const port = 3001; // Puerto diferente a Vite
@@ -201,6 +202,7 @@ app.use('/api/salud', saludRoutes);
 app.use('/api/almacen', almacenRoutes);
 app.use('/api/ciudadano', ciudadanoRoutes);
 app.use('/api/camaras', camarasRoutes);
+app.use('/api/apks', apkRoutes);
 
 
 // --- CRUD PATRULLAS ---

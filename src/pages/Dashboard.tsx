@@ -27,6 +27,7 @@ import AlertasPanicoModule from '../components/AlertasPanicoModule';
 import PatrullajeVivoModule from '../components/PatrullajeVivoModule';
 import SeguimientoAlertasModule from '../components/SeguimientoAlertasModule';
 import TurnosModule from '../components/TurnosModule';
+import ApksModule from '../components/ApksModule';
 import { canAccessTab, defaultTabFor } from '../utils/roles';
 import { API_URL, BASE_URL } from '../config/api';
 import { io } from 'socket.io-client';
@@ -578,6 +579,8 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode, justLoggedIn = fal
         return <PatrullajeModule />;
       case 'turnos':
         return <TurnosModule />;
+      case 'apks':
+        return <ApksModule />;
       case 'almacen':
         return <AlmacenModule />;
       case 'salud':
@@ -693,6 +696,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode, justLoggedIn = fal
                 'gestion-personal': 'Gestión de Personal',
                 patrullaje: 'Patrullaje',
                 turnos: 'Turnos',
+                apks: 'Descargas APK',
                 almacen: 'Almacén',
                 salud: 'Salud',
                 'salud-atenciones': 'Salud - Atenciones',
