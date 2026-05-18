@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { User } from '../services/authService';
+import { isSupervisorSaludOnly } from '../utils/roles';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -51,9 +52,16 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, user, isOpen }: SidebarPro
         { id: 'salud-tipos', label: 'Tipos de Atención', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> },
         { id: 'salud-establecimientos', label: 'Establecimientos', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg> },
         { id: 'salud-dashboard', label: 'Estadísticas', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> },
+        { id: 'salud-personal', label: 'Personal de Salud', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg> },
       ]
     },
   ];
+
+  // Si el usuario es supervisor_salud, filtramos: solo Inicio + grupo Salud
+  const restrictToSalud = isSupervisorSaludOnly(user);
+  const visibleTopItems = restrictToSalud ? topItems.filter(i => i.id === 'inicio') : topItems;
+  const visibleMenuGroups = restrictToSalud ? menuGroups.filter(g => g.label === 'Salud') : menuGroups;
+  const visibleBottomItems = restrictToSalud ? [] : null;
 
   // Items sin submenú (después de los grupos)
   const bottomItems: MenuItem[] = [
@@ -110,7 +118,7 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, user, isOpen }: SidebarPro
       {/* Menu */}
       <nav className="sidebar-menu">
         {/* Items sin submenú */}
-        {topItems.map(item => (
+        {visibleTopItems.map(item => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
@@ -123,7 +131,7 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, user, isOpen }: SidebarPro
         ))}
 
         {/* Grupos con submenú */}
-        {menuGroups.map(group => (
+        {visibleMenuGroups.map(group => (
           <div key={group.label} className="sidebar-group">
             <button
               className={`sidebar-group-toggle ${isGroupOpen(group) ? 'open' : ''} ${isGroupActive(group) ? 'group-active' : ''}`}
@@ -149,7 +157,7 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, user, isOpen }: SidebarPro
         ))}
 
         {/* Items sin submenú (resto) */}
-        {bottomItems.map(item => (
+        {(visibleBottomItems ?? bottomItems).map(item => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}

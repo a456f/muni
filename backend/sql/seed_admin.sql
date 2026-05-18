@@ -28,7 +28,8 @@ INSERT IGNORE INTO rol (nombre, sistema) VALUES
 ('medico', 'WEB'),
 ('enfermero', 'WEB'),
 ('paramedico', 'WEB'),
-('personal_salud', 'WEB');
+('personal_salud', 'WEB'),
+('supervisor_salud', 'WEB');
 
 -- 4. Asignar rol superadmin al usuario admin (busca por nombre, no por id fijo)
 INSERT IGNORE INTO usuario_rol (id_usuario, id_rol)

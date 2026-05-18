@@ -27,6 +27,7 @@ import AlertasPanicoModule from '../components/AlertasPanicoModule';
 import PatrullajeVivoModule from '../components/PatrullajeVivoModule';
 import SeguimientoAlertasModule from '../components/SeguimientoAlertasModule';
 import TurnosModule from '../components/TurnosModule';
+import { isSupervisorSaludOnly } from '../utils/roles';
 import { API_URL, BASE_URL } from '../config/api';
 import { io } from 'socket.io-client';
 import '../styles/RealtimeNotification.css';
@@ -39,7 +40,7 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) => {
-  const [activeTab, setActiveTab] = useState('inicio');
+  const [activeTab, setActiveTab] = useState(isSupervisorSaludOnly(user) ? 'salud-atenciones' : 'inicio');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [geoTab, setGeoTab] = useState('distritos');
   const [configTab, setConfigTab] = useState('tipos');
@@ -569,6 +570,8 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
         return <EstablecimientoSaludModule />;
       case 'salud-dashboard':
         return <SaludDashboard />;
+      case 'salud-personal':
+        return <PersonalModule title="Personal de Salud" restrictToHealth />;
       case 'supervisores':
         return <SupervisoresModule />;
       case 'denuncias-ciudadano':
@@ -665,6 +668,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
                 'salud-tipos': 'Salud - Tipos de Atención',
                 'salud-establecimientos': 'Salud - Establecimientos',
                 'salud-dashboard': 'Salud - Estadísticas',
+                'salud-personal': 'Salud - Personal',
                 supervisores: 'Supervisores',
                 'denuncias-ciudadano': 'Denuncias Ciudadanas',
                 'alertas-panico': 'Alertas de Panico',

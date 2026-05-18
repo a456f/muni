@@ -5,6 +5,7 @@ import './PersonalModule.css';
 import Notification from '../hooks/Notification';
 import { useNotification } from './useNotification';
 import { API_URL } from '../config/api';
+import { HEALTH_ROLES, HEALTH_STAFF_ROLES } from '../utils/roles';
 
 interface Role {
   id_rol: number;
@@ -51,9 +52,10 @@ const systemLabels: Record<string, string> = {
 
 interface PersonalModuleProps {
   title?: string;
+  restrictToHealth?: boolean;
 }
 
-const PersonalModule = ({ title = 'Gestion de Personal y Accesos' }: PersonalModuleProps) => {
+const PersonalModule = ({ title = 'Gestion de Personal y Accesos', restrictToHealth = false }: PersonalModuleProps) => {
   const [personal, setPersonal] = useState<PersonalRecord[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [form, setForm] = useState(initialForm);
@@ -96,19 +98,26 @@ const PersonalModule = ({ title = 'Gestion de Personal y Accesos' }: PersonalMod
   }, []);
 
   const groupedRoles = useMemo(() => {
-    return roles.reduce<Record<string, Role[]>>((acc, role) => {
+    const source = restrictToHealth
+      ? roles.filter((r) => HEALTH_STAFF_ROLES.includes(r.nombre))
+      : roles;
+    return source.reduce<Record<string, Role[]>>((acc, role) => {
       if (!acc[role.sistema]) {
         acc[role.sistema] = [];
       }
       acc[role.sistema].push(role);
       return acc;
     }, {});
-  }, [roles]);
+  }, [roles, restrictToHealth]);
 
   const filteredPersonal = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
-    return personal.filter((item) => {
+    const base = restrictToHealth
+      ? personal.filter((p) => p.roles.some((r) => HEALTH_ROLES.includes(r)))
+      : personal;
+
+    return base.filter((item) => {
       const fullName = `${item.nombres} ${item.apellidos}`.toLowerCase();
       const matchesSearch =
         !normalizedSearch ||
