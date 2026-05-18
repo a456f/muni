@@ -216,7 +216,7 @@ const AsignacionesEquiposModule = () => {
 
                                 <label>Área de Destino</label>
                                 <input type="text" placeholder="Buscar área..." value={areaSearch} onChange={e => setAreaSearch(e.target.value)} />
-                                <select value={assignForm.area_id} onChange={e => setAssignForm({ ...assignForm, area_id: e.target.value, persona_id: '' })} required>
+                                <select value={assignForm.area_id} onChange={e => { setAssignForm({ ...assignForm, area_id: e.target.value, persona_id: '' }); setPersonaSearch(''); }} required>
                                     <option value="">-- Seleccione Área --</option>
                                     {areas
                                         .filter(a => a.nombre.toLowerCase().includes(areaSearch.toLowerCase()))

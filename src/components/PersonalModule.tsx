@@ -226,11 +226,18 @@ const PersonalModule = ({ title = 'Gestion de Personal y Accesos', restrictToHea
     const url = editingId ? `${API_URL}/personal/${editingId}` : `${API_URL}/personal`;
     const method = editingId ? 'PUT' : 'POST';
 
+    // Adjuntamos el id del usuario actor para que el backend valide permisos sobre los roles asignados.
+    let actor_user_id: number | undefined;
+    try {
+      const session = JSON.parse(localStorage.getItem('oisgo_session') || 'null');
+      actor_user_id = session?.user?.id;
+    } catch { /* sin sesión */ }
+
     try {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        body: JSON.stringify({ ...form, actor_user_id })
       });
 
       const data = await response.json();

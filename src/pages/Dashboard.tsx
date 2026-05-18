@@ -27,7 +27,7 @@ import AlertasPanicoModule from '../components/AlertasPanicoModule';
 import PatrullajeVivoModule from '../components/PatrullajeVivoModule';
 import SeguimientoAlertasModule from '../components/SeguimientoAlertasModule';
 import TurnosModule from '../components/TurnosModule';
-import { isSupervisorSaludOnly } from '../utils/roles';
+import { canAccessTab, defaultTabFor } from '../utils/roles';
 import { API_URL, BASE_URL } from '../config/api';
 import { io } from 'socket.io-client';
 import '../styles/RealtimeNotification.css';
@@ -40,7 +40,12 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) => {
-  const [activeTab, setActiveTab] = useState(isSupervisorSaludOnly(user) ? 'salud-atenciones' : 'inicio');
+  const [activeTab, setActiveTab] = useState(defaultTabFor(user));
+
+  // Guard: si el usuario no puede acceder al tab actual (ej. por una notificación), redirige al default
+  const setActiveTabSafe = (tab: string) => {
+    setActiveTab(canAccessTab(user, tab) ? tab : defaultTabFor(user));
+  };
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [geoTab, setGeoTab] = useState('distritos');
   const [configTab, setConfigTab] = useState('tipos');
@@ -285,12 +290,12 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
 
   const handleNotificationClick = (n: { id_incidencia: number; tipo: string; numero_serie?: string }) => {
     if (n.tipo === 'revision_equipo' || n.tipo === 'inconsistencia') {
-      setActiveTab('almacen');
+      setActiveTabSafe('almacen');
       if (n.numero_serie) {
         sessionStorage.setItem('searchEquipo', n.numero_serie);
       }
     } else {
-      setActiveTab('denuncias');
+      setActiveTabSafe('denuncias');
       sessionStorage.setItem('highlightIncidencia', n.id_incidencia.toString());
     }
     setShowNotifications(false);
@@ -328,6 +333,10 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
   };
 
   const renderContent = () => {
+    // Si por algún motivo (notificación, link directo) el activeTab no está permitido para el rol, no renderizar el módulo prohibido
+    if (!canAccessTab(user, activeTab)) {
+      return <div style={{ padding: '2rem' }}><h2>Sin acceso</h2><p>Tu rol no tiene permiso para ver esta sección.</p></div>;
+    }
     switch (activeTab) {
       case 'inicio':
         const tendencia = stats ? ((stats.mesActual - stats.mesAnterior) / Math.max(stats.mesAnterior, 1) * 100) : 0;
@@ -531,7 +540,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
                       <thead><tr><th>Parte</th><th>Tipo</th><th>Zona</th><th>Lugar</th><th>Sereno</th><th>Modalidad</th><th>Fecha</th></tr></thead>
                       <tbody>
                         {(stats.ultimas || []).map((item: any) => (
-                          <tr key={item.id_incidencia} style={{ cursor: 'pointer' }} onClick={() => { setActiveTab('denuncias'); sessionStorage.setItem('highlightIncidencia', item.id_incidencia.toString()); }}>
+                          <tr key={item.id_incidencia} style={{ cursor: 'pointer' }} onClick={() => { setActiveTabSafe('denuncias'); sessionStorage.setItem('highlightIncidencia', item.id_incidencia.toString()); }}>
                             <td><code style={{ background: 'var(--bg-input, #f1f5f9)', padding: '2px 6px', borderRadius: 4, fontSize: '0.78rem' }}>{item.numero_parte || '-'}</code></td>
                             <td style={{ fontWeight: 500 }}>{item.tipo_hecho}</td>
                             <td>{item.zona || '-'}</td>
@@ -632,7 +641,7 @@ const Dashboard = ({ user, onLogout, toggleTheme, isDarkMode }: DashboardProps) 
   };
 
   const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
+    setActiveTabSafe(tab);
     setSidebarOpen(false);
   };
 

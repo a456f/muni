@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { User } from '../services/authService';
 import { isSupervisorSaludOnly } from '../utils/roles';
 import './Sidebar.css';
@@ -87,6 +87,15 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, user, isOpen }: SidebarPro
   };
 
   const [openGroup, setOpenGroup] = useState<string | null>(getActiveGroup());
+
+  // Si activeTab cambia desde fuera (notificación, click en KPI, etc.) y pertenece a un grupo cerrado, lo abrimos
+  useEffect(() => {
+    const target = getActiveGroup();
+    if (target && target !== openGroup) {
+      setOpenGroup(target);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const toggleGroup = (label: string) => {
     setOpenGroup(prev => prev === label ? null : label);

@@ -8,6 +8,36 @@ const saltRounds = 10;
 const normalizeRoleIds = (roleIds = []) =>
   [...new Set((Array.isArray(roleIds) ? roleIds : []).map(Number).filter(Boolean))];
 
+const HEALTH_STAFF_ROLES = ['medico', 'enfermero', 'paramedico', 'personal_salud'];
+const ADMIN_ROLES = ['superadmin', 'admin'];
+
+// Devuelve los roles (nombres) del usuario que está realizando la acción.
+const getActorRoles = async (actorUserId) => {
+  if (!actorUserId) return [];
+  const [rows] = await db.query(
+    `SELECT r.nombre FROM usuario_rol ur INNER JOIN rol r ON r.id_rol = ur.id_rol WHERE ur.id_usuario = ?`,
+    [actorUserId]
+  );
+  return rows.map((r) => r.nombre);
+};
+
+// Si el actor es supervisor_salud (y no admin), solo puede asignar roles de salud.
+const validateRoleAssignment = async (actorUserId, requestedRoleIds) => {
+  const ids = normalizeRoleIds(requestedRoleIds);
+  if (ids.length === 0) return null;
+  const actorRoles = await getActorRoles(actorUserId);
+  const isAdmin = actorRoles.some((r) => ADMIN_ROLES.includes(r));
+  const isSupervisorSaludOnly = actorRoles.includes('supervisor_salud') && !isAdmin;
+  if (!isSupervisorSaludOnly) return null;
+  const [rows] = await db.query(`SELECT nombre FROM rol WHERE id_rol IN (?)`, [ids]);
+  const requestedNames = rows.map((r) => r.nombre);
+  const forbidden = requestedNames.filter((n) => !HEALTH_STAFF_ROLES.includes(n));
+  if (forbidden.length > 0) {
+    return `No tienes permiso para asignar los roles: ${forbidden.join(', ')}.`;
+  }
+  return null;
+};
+
 const assignRoles = async (connection, idUsuario, roleIds) => {
   await connection.query('DELETE FROM usuario_rol WHERE id_usuario = ?', [idUsuario]);
 
@@ -163,7 +193,8 @@ router.post('/personal', async (req, res) => {
     direccion,
     username,
     password,
-    roleIds = []
+    roleIds = [],
+    actor_user_id
   } = req.body;
 
   if (!codigo_personal || !nombres || !apellidos || !dni || !correo || !telefono || !direccion) {
@@ -174,6 +205,11 @@ router.post('/personal', async (req, res) => {
   }
   if (!/^9\d{8}$/.test(telefono)) {
     return res.status(400).json({ error: 'El teléfono debe tener 9 dígitos y empezar con 9.' });
+  }
+
+  const permError = await validateRoleAssignment(actor_user_id, roleIds);
+  if (permError) {
+    return res.status(403).json({ error: permError });
   }
 
   const connection = await db.getConnection();
@@ -264,8 +300,14 @@ router.put('/personal/:id', async (req, res) => {
     direccion,
     username,
     password,
-    roleIds = []
+    roleIds = [],
+    actor_user_id
   } = req.body;
+
+  const permError = await validateRoleAssignment(actor_user_id, roleIds);
+  if (permError) {
+    return res.status(403).json({ error: permError });
+  }
 
   const { id } = req.params;
   const connection = await db.getConnection();
